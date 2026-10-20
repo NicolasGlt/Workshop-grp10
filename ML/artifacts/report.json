@@ -1,0 +1,58 @@
+{
+  "thresholds": {
+    "behavior": -0.6228910736702359,
+    "text": -0.43930727106927747,
+    "quantile": 0.01
+  },
+  "confusion_matrix": [
+    [
+      334,
+      16
+    ],
+    [
+      66,
+      3784
+    ]
+  ],
+  "classification_report": {
+    "0": {
+      "precision": 0.835,
+      "recall": 0.9542857142857143,
+      "f1-score": 0.8906666666666667,
+      "support": 350.0
+    },
+    "1": {
+      "precision": 0.9957894736842106,
+      "recall": 0.9828571428571429,
+      "f1-score": 0.989281045751634,
+      "support": 3850.0
+    },
+    "accuracy": 0.9804761904761905,
+    "macro avg": {
+      "precision": 0.9153947368421053,
+      "recall": 0.9685714285714286,
+      "f1-score": 0.9399738562091504,
+      "support": 4200.0
+    },
+    "weighted avg": {
+      "precision": 0.9823903508771931,
+      "recall": 0.9804761904761905,
+      "f1-score": 0.9810631808278868,
+      "support": 4200.0
+    }
+  },
+  "per_scenario": {
+    "api_down": 1.0,
+    "auth_abuse": 1.0,
+    "bank_timeout": 1.0,
+    "db_down": 1.0,
+    "frontend_down": 1.0,
+    "latency_spike": 1.0,
+    "memory_pressure": 0.8114,
+    "normal": 0.0457,
+    "silent_failure": 1.0,
+    "traffic_flood": 1.0,
+    "unknown_runtime": 1.0,
+    "waf_attack": 1.0
+  }
+}
