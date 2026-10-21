@@ -36,12 +36,16 @@ check "Catalogue produits"       200 "$(code "$MERCHANT/api/products")"
 check "Clé API absente refusée"  401 "$(code -X POST "$BASE/api/charge" -H 'Content-Type: application/json' -d "$(charge 4242424242424242)")"
 
 echo "== Paiement par carte (via WAF)"
-APPROVED=$(curl -s -X POST "$BASE/api/charge" -H "X-Api-Key: $API_KEY" -H 'Content-Type: application/json' -d "$(charge 4242424242424242)" | field status)
-check "Carte 4242 -> approved"   approved "$APPROVED"
+# 5555..4444 : carte de test non enrôlée -> autorisation directe.
+# 4242..4242 : carte d'Alice, enrôlée -> validation 3DS dans NovaPay (pending_auth).
+APPROVED=$(curl -s -X POST "$BASE/api/charge" -H "X-Api-Key: $API_KEY" -H 'Content-Type: application/json' -d "$(charge 5555555555554444)" | field status)
+check "Carte 5555 -> approved"   approved "$APPROVED"
+PENDING=$(curl -s -X POST "$BASE/api/charge" -H "X-Api-Key: $API_KEY" -H 'Content-Type: application/json' -d "$(charge 4242424242424242)" | field status)
+check "Carte 4242 (Alice) -> 3DS" pending_auth "$PENDING"
 DECLINED=$(curl -s -X POST "$BASE/api/charge" -H "X-Api-Key: $API_KEY" -H 'Content-Type: application/json' -d "$(charge 4000000000000002)" | field status)
 check "Carte 4000..0002 -> declined" declined "$DECLINED"
 check "Carte invalide (Luhn) -> 422" 422 "$(code -X POST "$BASE/api/charge" -H "X-Api-Key: $API_KEY" -H 'Content-Type: application/json' -d "$(charge 1234567812345678)")"
-check "Checkout boutique (4242)"  200 "$(code -X POST "$MERCHANT/api/checkout" -H 'Content-Type: application/json' -d '{"items":[{"id":"bra-cerrado","qty":1,"weight":"250g"}],"customer":{"name":"S","email":"s@p.l","address":"a","zip":"75001","city":"Paris"},"card":{"number":"4242424242424242","exp_month":12,"exp_year":30,"cvv":"123","holder":"S T"}}')"
+check "Checkout boutique (5555)"  200 "$(code -X POST "$MERCHANT/api/checkout" -H 'Content-Type: application/json' -d '{"items":[{"id":"bra-cerrado","qty":1,"weight":"250g"}],"customer":{"name":"S","email":"s@p.l","address":"a","zip":"75001","city":"Paris"},"card":{"number":"5555555555554444","exp_month":12,"exp_year":30,"cvv":"123","holder":"S T"}}')"
 
 echo "== Sécurité WAF"
 check "WAF actif (SQLi -> 403)"  403 "$(code "$BASE/api/ping?id=1%27%20OR%20%271%27=%271")"

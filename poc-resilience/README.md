@@ -32,7 +32,8 @@ Le client saisit ses coordonnées et sa carte sur la boutique. Le marchand trans
 | `clientapp` | **NovaPay** : espace client (néobanque) — Alice/Bob consultent solde, cartes, opérations (lecture seule) | **:8083** |
 | `db` | PostgreSQL — **schéma bancaire du groupe** (utilisateurs, comptes, comptes_bancaires, cartes, transactions, logs) + table `merchants` de la passerelle | interne |
 | `pgadmin` | Console d'admin de la base (serveur pré-enregistré) | **:5050** |
-| `ml-detector` | Détection d'anomalies (Isolation Forest) → déclenche la remédiation | interne |
+| `ml-detector` | Détection d'anomalies (Local Outlier Factor) → déclenche la remédiation | interne |
+| `traffic` | Clients simulés à faible débit (1 à 6 req/s, cartes de test) : la plateforme n'est jamais muette | interne |
 | `remediation` | Moteur de remédiation : playbooks Ansible (block_ip, restart) | interne |
 | `prometheus` + exporters | métriques | :9090 (local) |
 | `loki` + `alloy` | logs de tous les conteneurs | interne |
@@ -166,21 +167,27 @@ Le cœur du sujet : attaque → détection → **réponse automatique sans inter
 ```
   métriques        anomalie          décision           action Ansible
 Prometheus ─► ml-detector ─────► remediation ─────► block_ip  (deny nginx + reload)
-  /Loki       Isolation Forest    (token, remnet)    restart_service (docker restart)
+  /Loki       LOF (novelty)       (token, remnet)    restart_service (docker restart)
                                                       ▲ socket Docker (seul composant)
 ```
 
-- **ml-detector** apprend la « normale » (débit, erreurs, latence) pendant ~2 min, puis score chaque mesure. Après 3 anomalies consécutives, il décide une action et appelle la remédiation. Expose `ml_detector_anomaly`, `ml_detector_anomaly_score`, `ml_detector_remediations_total`.
+- **ml-detector** apprend la « normale » (débit, erreurs, latence) pendant ~2 min, puis score chaque mesure. Modèle : Local Outlier Factor en mode novelty, sur les features en log puis standardisées. Un Isolation Forest a été écarté : ses coupes restent dans la plage apprise, un flood x100 recevait le même score qu'un pic normal (mesuré le 21/10). La normale vient du service `traffic` ; sans aucune variation (stack au repos), l'entraînement est différé. Après 3 anomalies consécutives, il décide une action et appelle la remédiation. Expose `ml_detector_anomaly`, `ml_detector_anomaly_score`, `ml_detector_remediations_total`.
 - **remediation** exécute les playbooks Ansible. Accès maîtrisé : réseau interne `remnet` (joignable seulement par le détecteur), token obligatoire, garde-fous (IP jamais bloquées via `SAFE_IPS`, TTL de 5 min sur les blocages, anti-boucle sur les redémarrages). C'est le **seul** composant avec accès au socket Docker.
 - Deux modes selon l'environnement (variable `FLOOD_ACTION`) :
-  - `restart` (défaut, **mono-poste local**) : un flood sature l'API → redémarrage du service.
-  - `block_ip` (**setup 2 PC**) : l'IP de l'attaquant est identifiée (logs WAF) et bloquée au niveau du frontend → le flood tombe en 403, le service reste dispo.
+  - `restart` : redémarrage du service. Le frontend résout `api` dynamiquement, il suit la nouvelle IP du conteneur.
+  - `block_ip` (**défaut**) : l'IP de l'attaquant est désignée par le moteur de remédiation, qui compte les clients dans les logs du conteneur WAF sur 60 s (access log et audit ModSecurity), puis bloquée au niveau du frontend → le flood tombe en 403, le service reste dispo. Marche aussi sur un seul poste : le conteneur `hey` de la démo a sa propre IP.
 
 ### Démo de reprise (Clip Chrono)
 
 ```powershell
-./scripts/demo-incident.ps1
+./scripts/demo-incident.ps1      # Windows
 ```
+
+```bash
+./scripts/demo-incident.sh       # Linux, Docker ou Podman (ENGINE=podman)
+```
+
+Le script attend que le détecteur soit entraîné (~2 min après le démarrage) avant d'attaquer.
 
 Le script : montre une transaction OK (avant), déclenche le flood, laisse la boucle détecter et remédier, puis rejoue une transaction (après). À regarder en direct dans Grafana → **07 · Résilience**. Suivi des décisions :
 
@@ -202,5 +209,4 @@ docker compose exec remediation sh -c "wget -qO- http://localhost:8000/status"
 1. Assistant RAG local (Ollama + LangChain) pour les opérateurs.
 2. Gestion des secrets par SOPS (en remplacement du `.env`).
 3. Gouvernance : EBIOS RM, PCA/PRA, mapping NIS2/DORA.
-4. Générateur de trafic légitime permanent (baseline plus riche).
-5. Sauvegarde / restauration PostgreSQL (RTO/RPO).
+4. Sauvegarde / restauration PostgreSQL (RTO/RPO).

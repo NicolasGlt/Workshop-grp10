@@ -122,7 +122,23 @@ services:
     logging: *default-logging
 
   # ------------------------- IA / RÉSILIENCE (boucle autonome) -------------------------
-  # Détecteur d'anomalies : lit Prometheus/Loki, apprend la normale (Isolation Forest),
+  # Clients simulés à faible débit (1 à 6 req/s, cartes de test) : la plateforme n'est
+  # jamais muette, les dashboards vivent et le détecteur apprend une normale réaliste.
+  # Couper pendant une recette : docker compose stop traffic
+  traffic:
+    build: ./traffic
+    restart: unless-stopped
+    environment:
+      TARGET_URL: http://waf:8080
+      MERCHANT_API_KEY: ${MERCHANT_API_KEY:?}
+      MIN_RPS: "1"
+      MAX_RPS: "6"
+    depends_on:
+      waf: { condition: service_started }
+    networks: [edge]
+    logging: *default-logging
+
+  # Détecteur d'anomalies : lit Prometheus/Loki, apprend la normale (Local Outlier Factor),
   # décide une action et appelle le moteur de remédiation — sans intervention humaine.
   ml-detector:
     build: ./ml-detector
@@ -136,7 +152,7 @@ services:
       ANOMALY_STREAK: "3"
       COOLDOWN_SECONDS: "60"
       AUTO_REMEDIATE: "true"
-      FLOOD_ACTION: ${FLOOD_ACTION:-restart}   # restart (local) | block_ip (setup 2 PC)
+      FLOOD_ACTION: ${FLOOD_ACTION:-block_ip}  # block_ip (défaut, attaquant en 403) | restart
     depends_on: [prometheus, remediation]
     networks: [monitoring, remnet]
     logging: *default-logging

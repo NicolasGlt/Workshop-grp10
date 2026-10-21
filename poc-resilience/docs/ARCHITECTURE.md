@@ -52,7 +52,7 @@ L'appel serveur-à-serveur du marchand vers l'API PayPoc transite par le WAF (`m
 | `nginx-exporter` | `nginx/nginx-prometheus-exporter` | exporter | Expose les stats nginx (frontend) à Prometheus | interne |
 | `cadvisor` | `gcr.io/cadvisor/cadvisor` | cAdvisor | Métriques CPU/RAM/réseau par conteneur | interne |
 | `blackbox` | `prom/blackbox-exporter` | blackbox-exporter | Sondes HTTP actives (synthetic monitoring) sur les endpoints | interne |
-| `ml-detector` | build maison | Python / scikit-learn (Isolation Forest) | Détecte l'anomalie et décide l'action | interne |
+| `ml-detector` | build maison | Python / scikit-learn (Local Outlier Factor) | Détecte l'anomalie et décide l'action | interne |
 | `remediation` | build maison | Python / FastAPI + Ansible | Exécute la réponse automatique (playbooks) | interne |
 
 ### Détail du fonctionnement
@@ -161,7 +161,7 @@ Un paiement carte sur la boutique devient une ligne `transactions` du compte sys
 
 C'est le cœur du projet : attaque → détection → **réponse automatique sans intervention humaine** → service rétabli.
 
-1. **ml-detector** interroge Prometheus (et Loki pour l'IP source) toutes les 5 s et construit un vecteur de features : débit req/s, taux d'erreurs 5xx, latence p95, taux de 4xx. Pendant ~2 min il apprend la « normale » et entraîne un **Isolation Forest**, puis score chaque mesure.
+1. **ml-detector** interroge Prometheus toutes les 5 s et construit un vecteur de features : débit req/s, taux d'erreurs 5xx, latence p95, taux de 4xx. Pendant ~2 min il apprend la « normale » (trafic du service `traffic`) et entraîne un **Local Outlier Factor** en mode novelty, puis score chaque mesure.
 2. Après **3 anomalies consécutives**, il décide une action (flood → `block_ip` ou `restart_service` selon `FLOOD_ACTION` ; dégradation → `restart_service`) et appelle le moteur de remédiation (POST signé par token), puis respecte un temps de refroidissement.
 3. **remediation** exécute le **playbook Ansible** correspondant :
    - `block_ip` : ajoute l'IP à la blocklist nginx (`map $http_x_forwarded_for`) du frontend et recharge nginx → les requêtes de cette IP tombent en 403 ;
@@ -177,7 +177,7 @@ C'est le cœur du projet : attaque → détection → **réponse automatique san
 - Soldes de la banque **en mémoire** : réinitialisés au redémarrage du conteneur (acceptable pour un POC ; à remplacer par une base si persistance voulue).
 - `cadvisor` fonctionne mal sous Docker Desktop (lancer avec `--scale cadvisor=0`).
 
-Suite prévue (cyber-résilience) : générateur de trafic légitime (baseline), détecteur d'anomalies (Isolation Forest) lisant Prometheus/Loki, moteur de remédiation (Ansible : block ip, restart, scale), sauvegarde/restauration PostgreSQL.
+Suite prévue (cyber-résilience) : sauvegarde/restauration PostgreSQL.
 
 ---
 

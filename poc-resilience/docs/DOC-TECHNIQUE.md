@@ -42,7 +42,7 @@ Modèle bancaire du groupe (socle) : `utilisateurs`, `comptes` (email + `passwor
 ## Sécurité & résilience
 
 - **Esprit PCI-DSS** : le numéro de carte et le CVV ne sont **jamais stockés ni journalisés** ; seuls `card_last4`, un token opaque et la référence banque sont conservés. Seule la banque voit le PAN complet (en mémoire). SQL paramétré partout.
-- **Résilience autonome** : un *Isolation Forest* apprend la normale ; sur anomalie (ex. flood type DoS) il déclenche automatiquement des playbooks Ansible (blocage d'IP, redémarrage de service) — sans intervention humaine.
+- **Résilience autonome** : un *Local Outlier Factor* apprend la normale ; sur anomalie (ex. flood type DoS) il déclenche automatiquement des playbooks Ansible (blocage d'IP, redémarrage de service) — sans intervention humaine.
 
 ## Démarrage
 
