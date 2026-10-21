@@ -50,7 +50,10 @@ Brique de sécurité du projet **PROJECT RESILIENCE-ALPHA** (workshop M2 EPSI 20
 cd AUTH_FACIALE
 py -3.12 -m venv .venv
 .venv\Scripts\python -m pip install -r requirements.txt
+copy .env.example .env      # renseigner BACKOFFICE_DB_PASSWORD (celui de poc-resilience\.env)
 ```
+
+La base est celle du SI : la stack `poc-resilience` doit tourner (PostgreSQL publié sur `127.0.0.1:5432` seulement). Une ancienne base SQLite se reprend sans réenrôler : `.venv\Scripts\python scripts\migrate_sqlite.py auth.db`.
 
 Les deux modèles ONNX sont fournis dans `models/` (origine et empreintes en [section 13](#13-documents-associés-et-sources)).
 
@@ -104,11 +107,14 @@ Il n'y a volontairement pas d'inscription en libre-service : une habilitation es
 
 ## 4. Configuration
 
-Réglages dans `app/config.py`, chacun surchargeable par une variable d'environnement du même nom.
+Réglages dans `app/config.py`, chacun surchargeable par une variable d'environnement du même nom ou par le fichier `.env` (non versionné, modèle `.env.example`).
 
 | Variable | Défaut | Rôle |
 |---|---|---|
-| `CAM_INDEX` | `1` | index de la webcam USB (`0` est souvent la webcam intégrée ; `scripts/test_camera.py` aide à le trouver) |
+| `BACKOFFICE_DB_PASSWORD` | aucun | mot de passe du rôle `backoffice` de la base du SI |
+| `DATABASE_URL` | construit depuis `DB_HOST`, `DB_PORT`, `DB_NAME` | connexion PostgreSQL complète, prioritaire |
+| `CAM_INDEX` | `1` | index de la webcam USB (`0` est souvent la webcam intégrée ; `scripts/test_camera.py` aide à le trouver). Backend MSMF sous Windows, V4L2 sous Linux |
+| `GRAFANA_URL`, `PGADMIN_URL`, `SHOP_URL` | `localhost` | liens du back-office vers les outils du SI |
 | `FACE_THRESHOLD` | `0.363` | seuil de similarité cosinus SFace |
 | `FACE_HITS` | `3` | images au-dessus du seuil nécessaires |
 | `FACE_TIMEOUT_S` | `5` | durée maximale de la vérification |
@@ -127,8 +133,8 @@ Valeurs fixées par la consigne : 30 s de rouge (`COOLDOWN_S`), 5 min de blocage
  ┌─────────────────────────────────────────────────────────────┐
  │  Navigateur ──HTTP──> Application FastAPI (127.0.0.1:8000)    │
  │                          │           │            │          │
- │                     webcam USB    SQLite     ordres LED      │
- │                     (OpenCV)     auth.db    (HTTP, file)     │
+ │                     webcam USB  PostgreSQL   ordres LED      │
+ │                     (OpenCV)   du SI :5432  (HTTP, file)     │
  │                                                   │          │
  │  Point d'accès Windows RESILIENCE-G<n> (192.168.137.1)        │
  └───────────────────────────────────────────────────│─────────┘
@@ -160,7 +166,7 @@ AUTH_FACIALE/
 │   ├── face.py             détection et reconnaissance
 │   ├── camera.py           allumage/extinction de la webcam, flux MJPEG
 │   ├── led.py              ordres à l'ESP, non bloquants
-│   ├── db.py               schéma SQLite, journal
+│   ├── db.py               schéma backoffice (PostgreSQL du SI), journal, lecture du métier
 │   ├── config.py           réglages
 │   └── static/             login.html, backoffice.html, admin.html, monitor.html (outil de test)
 ├── scripts/
@@ -173,7 +179,7 @@ AUTH_FACIALE/
     └── include/secrets.h.example
 ```
 
-Générés localement et jamais versionnés : `.venv/`, `auth.db`, `esp8266/include/secrets.h`, `esp8266/.pio/`.
+Générés localement et jamais versionnés : `.venv/`, `.env`, `esp8266/include/secrets.h`, `esp8266/.pio/`.
 
 ## 6. Fonctionnement détaillé
 
@@ -263,7 +269,7 @@ Rôles `admin`, `operateur`, `lecteur`. Seule la distinction admin / non-admin a
 
 ## 8. Modèle de données
 
-SQLite, fichier `auth.db` créé au premier lancement (`app/db.py`).
+Schéma `backoffice` de la base PostgreSQL du SI, tables créées au premier lancement (`app/db.py`). Le rôle `backoffice` (`poc-resilience/db/init/05-backoffice.sh`) en est propriétaire et ne fait que **lire** le métier : transactions, commandes, journal, marchands sans la colonne `api_key`. Il ne voit ni les cartes ni les clés API, et ne peut rien écrire hors de son schéma (vérifié le 21/10).
 
 | Table | Contenu |
 |---|---|
@@ -285,15 +291,16 @@ Dates en horodatage Unix (secondes).
 - Droits d'administration vérifiés côté serveur sur chaque route `/api/admin/*`.
 - Application limitée à 127.0.0.1 ; ESP protégé par jeton ; identifiants inconnus jamais stockés en clair.
 - Biométrie minimisée : vecteurs uniquement, aucune photo.
-- Secrets hors du dépôt (`secrets.h`, `auth.db` dans `.gitignore`).
+- Secrets hors du dépôt (`secrets.h`, `.env` dans `.gitignore`).
+- Base du SI publiée sur 127.0.0.1 seulement, rôle dédié en moindre privilège.
 
 **Limites connues**
 
 - Pas de détection du vivant : une photo du visage sur un téléphone peut tromper SFace. Parade industrielle : caméra infrarouge (type Windows Hello) ou défi-réponse.
 - Trafic vers l'ESP en HTTP clair sur le point d'accès : un appareil connecté qui capterait le jeton pourrait piloter la LED, sans effet sur l'authentification.
-- `auth.db` non chiffrée sur le disque (en production : chiffrement du disque, secrets dans Vault).
+- Gabarits stockés en clair dans la base (en production : chiffrement applicatif des gabarits, secrets dans Vault).
 - Politique de mot de passe minimale (8 caractères).
-- Données biométriques (article 9 du RGPD) : consentement des personnes enrôlées, purge de `auth.db` après le workshop.
+- Données biométriques (article 9 du RGPD) : consentement des personnes enrôlées, purge du schéma `backoffice` après le workshop.
 - N'importe qui peut bloquer un compte 5 minutes en échouant deux fois sur son identifiant.
 - Si l'unique admin est bloqué, personne ne peut débloquer : prévoir deux admins.
 

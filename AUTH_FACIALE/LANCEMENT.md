@@ -26,6 +26,8 @@ Réponse attendue : `{"mode":"off","rssi":...}`. Rien ne répond : le point d'ac
 
 ## 3. Application
 
+Prérequis : la stack `poc-resilience` tourne (`docker compose ps` : `db` en healthy), car les comptes, les visages et le journal sont dans sa base. Le fichier `AUTH_FACIALE\.env` contient `BACKOFFICE_DB_PASSWORD`, la même valeur que dans `poc-resilience\.env`. Vérification : `http://127.0.0.1:8000/api/health` doit répondre `"database": true`.
+
 Dans un terminal PowerShell (pas besoin d'être administrateur) :
 
 ```powershell

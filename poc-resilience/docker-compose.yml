@@ -75,7 +75,7 @@ services:
       - "8082:8000"
     environment:
       PAYPOC_API_BASE: http://waf:8080/api
-      MERCHANT_API_KEY: ${MERCHANT_API_KEY:-pk_nova_demo_bYtR7xQ2}
+      MERCHANT_API_KEY: ${MERCHANT_API_KEY:?}
       DATABASE_URL: postgresql://app_user:${APP_DB_PASSWORD:?}@db:5432/${POSTGRES_DB:?}
       JWT_SECRET: ${JWT_SECRET:?}
       JWT_TTL_MIN: "120"
@@ -180,8 +180,10 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:?}
       POSTGRES_USER: ${POSTGRES_USER:?}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?}
+      MERCHANT_API_KEY: ${MERCHANT_API_KEY:?}        # lu par db/init/06-merchant-key.sh
       APP_DB_PASSWORD: ${APP_DB_PASSWORD:?}            # lus par db/init/03-roles.sh
       EXPORTER_DB_PASSWORD: ${EXPORTER_DB_PASSWORD:?}
+      BACKOFFICE_DB_PASSWORD: ${BACKOFFICE_DB_PASSWORD:?}   # lu par db/init/05-backoffice.sh
     command: >
       postgres
       -c log_min_error_statement=error
@@ -195,7 +197,11 @@ services:
       interval: 5s
       timeout: 3s
       retries: 10
-    networks: [data]
+    # Publiée sur la boucle locale SEULEMENT, pour le back-office AUTH_FACIALE qui tourne
+    # hors conteneur sur le PC Hôte (webcam USB). Invisible depuis le point d'accès.
+    ports:
+      - "127.0.0.1:5432:5432"
+    networks: [data, backoffice]
     logging: *default-logging
 
   # Console d'administration de la base (consultation soldes, transactions, logs).
@@ -332,6 +338,7 @@ networks:
   monitoring:
   remnet:                 # ml-detector <-> remediation uniquement (accès remédiation maîtrisé)
     internal: true
+  backoffice:             # db seule : permet de publier 5432 sur 127.0.0.1 (data est interne)
 
 volumes:
   db-data:

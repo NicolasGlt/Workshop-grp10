@@ -138,6 +138,39 @@ def api_me(request: Request):
     return {"username": user["username"], "role": user["role"]}
 
 
+# --- back-office du SI de paiement (lecture seule, rôle backoffice en base) -------------
+# Habilitations : lecteur = indicateurs et liens, operateur = + transactions et journal
+# sécurité, admin = + gestion des habilitations.
+
+def require_role(request: Request, *roles):
+    user = require_user(request)
+    if user["role"] not in roles:
+        raise HTTPException(403, "habilitation insuffisante")
+    return user
+
+
+@app.get("/api/si/summary")
+def si_summary(request: Request):
+    require_user(request)
+    summary = db.si_summary()
+    summary["merchants"] = db.si_merchants()
+    summary["links"] = {"grafana": config.GRAFANA_URL, "pgadmin": config.PGADMIN_URL,
+                        "shop": config.SHOP_URL}
+    return summary
+
+
+@app.get("/api/si/transactions")
+def si_transactions(request: Request):
+    require_role(request, "operateur", "admin")
+    return db.si_transactions()
+
+
+@app.get("/api/si/security")
+def si_security(request: Request):
+    require_role(request, "operateur", "admin")
+    return db.si_security_logs()
+
+
 @app.get("/api/state")
 def api_state():
     return auth.kiosk.snapshot()
@@ -145,8 +178,12 @@ def api_state():
 
 @app.get("/api/health")
 def api_health():
+    try:
+        database = db.ping()
+    except Exception:
+        database = False
     return {"camera_on": camera.is_on, "camera_index": config.CAM_INDEX,
-            "led": led.health(), "kiosk": auth.kiosk.snapshot()["state"]}
+            "led": led.health(), "database": database, "kiosk": auth.kiosk.snapshot()["state"]}
 
 
 # --- habilitations (rôle admin) -------------------------------------------------------
