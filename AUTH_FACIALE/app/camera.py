@@ -1,5 +1,6 @@
 """Webcam USB : allumage/extinction réels, un thread garde la dernière image."""
 import os
+import sys
 import threading
 import time
 
@@ -7,6 +8,9 @@ os.environ.setdefault("OPENCV_VIDEOIO_MSMF_ENABLE_HW_TRANSFORMS", "0")   # ouver
 import cv2
 
 from . import config
+
+# Backend vidéo selon l'OS : MSMF sous Windows (PC Hôte de la démo), V4L2 sous Linux.
+_BACKEND = {"win32": cv2.CAP_MSMF, "linux": cv2.CAP_V4L2}.get(sys.platform, cv2.CAP_ANY)
 
 
 class Camera:
@@ -27,7 +31,7 @@ class Camera:
         with self._lock:
             if self._running:
                 return
-            cap = cv2.VideoCapture(self.index, cv2.CAP_MSMF)
+            cap = cv2.VideoCapture(self.index, _BACKEND)
             if not cap.isOpened():
                 raise RuntimeError(f"camera {self.index} indisponible")
             self._cap, self._frame, self._running = cap, None, True

@@ -7,6 +7,21 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 
 
+def _load_dotenv(path):
+    """Charge AUTH_FACIALE/.env (non versionné) sans écraser l'environnement existant."""
+    if not path.exists():
+        return
+    for line in path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if line and not line.startswith("#") and "=" in line:
+            key, value = line.split("=", 1)
+            value = value.split(" #", 1)[0]          # commentaire en fin de ligne
+            os.environ.setdefault(key.strip(), value.strip())
+
+
+_load_dotenv(ROOT / ".env")
+
+
 def _env(name, default, cast=str):
     value = os.environ.get(name)
     return cast(value) if value is not None else default
@@ -27,7 +42,16 @@ BACKOFFICE_DELAY_S = _env("BACKOFFICE_DELAY_S", 0, int)   # 0 ou 30 selon la lec
 LED_URL = _env("LED_URL", "http://192.168.137.200")
 LED_TIMEOUT_S = 0.5
 
-DB_PATH = ROOT / "auth.db"
+# Base : schéma `backoffice` du PostgreSQL du POC, publié sur 127.0.0.1 seulement.
+# Mot de passe = BACKOFFICE_DB_PASSWORD du .env de poc-resilience.
+DATABASE_URL = _env("DATABASE_URL", "") or (
+    f"postgresql://backoffice:{os.environ.get('BACKOFFICE_DB_PASSWORD', '')}"
+    f"@{_env('DB_HOST', '127.0.0.1')}:{_env('DB_PORT', '5432')}/{_env('DB_NAME', 'payments')}")
+
+# Liens du back-office vers les outils du SI (PC Hôte)
+GRAFANA_URL = _env("GRAFANA_URL", "http://localhost:3000")
+PGADMIN_URL = _env("PGADMIN_URL", "http://localhost:5050")
+SHOP_URL = _env("SHOP_URL", "http://localhost:8082")
 MODELS = ROOT / "models"
 SESSION_SECRET = os.environ.get("SESSION_SECRET") or secrets.token_hex(32)
 
