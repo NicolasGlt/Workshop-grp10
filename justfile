@@ -137,3 +137,100 @@ urls:
     @echo "Grafana           http://localhost:3000"
     @echo "Prometheus        http://localhost:9090"
     @echo "pgAdmin           http://localhost:5050"
+
+# ---------------------------------------------------------------- résilience des données (PRA)
+
+# Sauvegarde la base : dump horodaté, empreinte SHA-256, comptes de lignes, rotation des 7 derniers
+[unix]
+[working-directory('poc-resilience')]
+backup:
+    COMPOSE="{{ compose }}" ./backup/backup.sh
+
+# Sauvegarde la base : dump horodaté, empreinte SHA-256, comptes de lignes, rotation des 7 derniers
+[windows]
+[working-directory('poc-resilience')]
+backup:
+    $env:COMPOSE = "{{ compose }}"; & "$env:ProgramFiles\Git\bin\bash.exe" backup/backup.sh
+
+# Remplace la base par un dump (le dernier par défaut, chemin relatif à poc-resilience/), RTO mesuré
+[confirm("Remplacer la base payments par le dump ? Les écritures postérieures seront perdues")]
+[unix]
+[working-directory('poc-resilience')]
+restore file="":
+    COMPOSE="{{ compose }}" ./backup/restore.sh {{ quote(file) }}
+
+# Remplace la base par un dump (le dernier par défaut, chemin relatif à poc-resilience/), RTO mesuré
+[confirm("Remplacer la base payments par le dump ? Les écritures postérieures seront perdues")]
+[windows]
+[working-directory('poc-resilience')]
+restore file="":
+    $env:COMPOSE = "{{ compose }}"; & "$env:ProgramFiles\Git\bin\bash.exe" backup/restore.sh "{{ file }}"
+
+# Restaure un dump dans payments_restore_test, compare les comptes, sans toucher à la prod
+[unix]
+[working-directory('poc-resilience')]
+restore-check file="":
+    COMPOSE="{{ compose }}" ./backup/restore.sh --check {{ quote(file) }}
+
+# Restaure un dump dans payments_restore_test, compare les comptes, sans toucher à la prod
+[windows]
+[working-directory('poc-resilience')]
+restore-check file="":
+    $env:COMPOSE = "{{ compose }}"; & "$env:ProgramFiles\Git\bin\bash.exe" backup/restore.sh --check "{{ file }}"
+
+# ---------------------------------------------------------------- secrets (SOPS + age)
+
+secrets_file := "poc-resilience/secrets/poc-resilience.enc.env"
+
+# Crée sa clé age personnelle hors dépôt (sans écraser) et affiche la clé publique à ajouter à .sops.yaml
+[unix]
+secrets-keygen:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    f="${SOPS_AGE_KEY_FILE:-${XDG_CONFIG_HOME:-$HOME/.config}/sops/age/keys.txt}"
+    if [ ! -f "$f" ]; then mkdir -p "$(dirname "$f")" && age-keygen -o "$f" 2>/dev/null && chmod 600 "$f"; fi
+    echo "Clé privée : $f (ne jamais la copier dans le dépôt)"
+    echo "Clé publique à ajouter dans .sops.yaml :"
+    age-keygen -y "$f"
+
+# Crée sa clé age personnelle hors dépôt (sans écraser) et affiche la clé publique à ajouter à .sops.yaml
+[windows]
+secrets-keygen:
+    $f = if ($env:SOPS_AGE_KEY_FILE) { $env:SOPS_AGE_KEY_FILE } else { "$env:APPDATA\sops\age\keys.txt" }; if (-not (Test-Path $f)) { New-Item -ItemType Directory -Force (Split-Path $f) | Out-Null; age-keygen -o $f 2>$null }; Write-Host "Clé privée : $f (ne jamais la copier dans le dépôt)"; Write-Host "Clé publique à ajouter dans .sops.yaml :"; age-keygen -y $f
+
+# Chiffre poc-resilience/.env vers le fichier SOPS versionné
+[unix]
+secrets-encrypt: _sops-ready
+    sops encrypt --input-type dotenv --output-type dotenv --filename-override {{ secrets_file }} --output {{ secrets_file }} poc-resilience/.env
+    @echo "Chiffré : {{ secrets_file }} (à commiter ; le .env en clair reste ignoré)"
+
+# Chiffre poc-resilience/.env vers le fichier SOPS versionné
+[windows]
+secrets-encrypt: _sops-ready
+    sops encrypt --input-type dotenv --output-type dotenv --filename-override {{ secrets_file }} --output {{ secrets_file }} poc-resilience/.env
+    Write-Host "Chiffré : {{ secrets_file }} (à commiter ; le .env en clair reste ignoré)"
+
+# Régénère poc-resilience/.env depuis le fichier SOPS (clé age privée requise)
+[confirm("Écraser poc-resilience/.env par la version déchiffrée ?")]
+secrets-decrypt:
+    sops decrypt --input-type dotenv --output-type dotenv --output poc-resilience/.env {{ secrets_file }}
+
+# Édite les secrets chiffrés directement (déchiffrés le temps de l'éditeur seulement)
+secrets-edit: _sops-ready
+    sops edit {{ secrets_file }}
+
+# Rechiffre la clé de données pour les clés publiques actuelles de .sops.yaml (après ajout ou départ d'un membre)
+secrets-updatekeys: _sops-ready
+    sops updatekeys --yes {{ secrets_file }}
+
+# Refuse de chiffrer tant que .sops.yaml porte la clé d'exemple
+[private]
+[unix]
+_sops-ready:
+    @! grep -q A-REMPLACER .sops.yaml || { echo "ERREUR : remplacer la clé d'exemple de .sops.yaml (voir poc-resilience/secrets/README.md)" >&2; exit 1; }
+
+# Refuse de chiffrer tant que .sops.yaml porte la clé d'exemple
+[private]
+[windows]
+_sops-ready:
+    @if (Select-String -Quiet -Pattern A-REMPLACER -Path .sops.yaml) { Write-Error "remplacer la clé d'exemple de .sops.yaml (voir poc-resilience/secrets/README.md)"; exit 1 }

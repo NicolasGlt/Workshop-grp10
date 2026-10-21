@@ -162,6 +162,40 @@ docker compose down -v         # réinitialisation complète (BDD + soldes banqu
 | Clé API invalide au `/buy` | `MERCHANT_API_KEY` du `.env` changée après le 1er démarrage → `docker compose exec db sh /docker-entrypoint-initdb.d/06-merchant-key.sh` |
 | Target `cadvisor` down | normal sous Docker Desktop : `--scale cadvisor=0` |
 
+## Sauvegarde, restauration et secrets
+
+### Sauvegarde et restauration de la base (PRA, §3.5)
+
+Tout passe par le conteneur `db` (`docker compose exec -T db`) : aucun client PostgreSQL n'est requis sur l'hôte. Scripts dans [`backup/`](backup/), dumps dans `backup/dumps/` (ignoré par Git).
+
+| Commande | Effet |
+|---|---|
+| `just backup` | `pg_dump -Fc` horodaté de `payments`, empreinte `.sha256`, comptes de lignes `.counts`, rotation des 7 derniers (`KEEP=n` pour changer) |
+| `just restore-check [dump]` | restaure dans `payments_restore_test`, compare chaque table au dump, supprime la base de test : **la prod n'est pas touchée** |
+| `just restore [dump]` | **remplace** `payments` (confirmation demandée) : vérifie l'empreinte, recrée la base de zéro, compare les comptes, affiche le **RTO mesuré** et les transactions perdues depuis le dump (**RPO observé**) |
+
+Sans argument, le dump le plus récent est pris ; un chemin se donne relatif à `poc-resilience/` (`just restore backup/dumps/payments-20261022-101500.dump`).
+
+- **Cohérence** : les comptes de lignes sont pris dans la même transaction (snapshot exporté vers `pg_dump`) que le dump, ils restent exacts même si le trafic de démo écrit pendant la sauvegarde.
+- **Intégrité** : un dump dont l'empreinte SHA-256 ne correspond plus est refusé ; après restauration, un écart de comptes fait échouer la commande.
+- **Restauration** : `DROP DATABASE ... WITH (FORCE)` coupe les sessions des services (ils se reconnectent seuls), puis `pg_restore --create` rejoue la base, son schéma, ses droits et ses données. Les rôles (`app_user`, `exporter`, `backoffice`) sont globaux au cluster et ne sont pas dans le dump : après un `just reset`, faire `just up` (les scripts d'init les recréent) avant `just restore`.
+- **Limite** : les dumps restent sur le même hôte que la base. Contre le rançongiciel (R3), une copie doit sortir de l'hôte (support hors ligne ou stockage immuable) ; c'est hors du périmètre du POC.
+
+Stack Podman : `DB_EXEC="podman exec -i resilience-alpha_db_1" just backup` (de même pour `restore` et `restore-check`).
+
+### Secrets (SOPS + age, §3.4)
+
+Le `.env` en clair reste local et ignoré par Git ; sa version chiffrée `secrets/poc-resilience.enc.env` est versionnée, déchiffrable par les seules clés age listées dans `.sops.yaml` à la racine. Chaque membre a sa propre clé, aucune clé privée ne circule.
+
+| Commande | Effet |
+|---|---|
+| `just secrets-keygen` | crée sa clé age hors dépôt et affiche la clé publique à ajouter dans `.sops.yaml` |
+| `just secrets-encrypt` | chiffre `poc-resilience/.env` vers le fichier versionné |
+| `just secrets-decrypt` | régénère `poc-resilience/.env` (poste neuf, PC Hôte) |
+| `just secrets-edit` / `just secrets-updatekeys` | modifier un secret / rechiffrer après l'ajout ou le départ d'un membre |
+
+Procédure complète et distribution des clés : [`secrets/README.md`](secrets/README.md).
+
 ## Boucle de résilience autonome (détection → remédiation)
 
 Le cœur du sujet : attaque → détection → **réponse automatique sans intervention humaine** → service rétabli.
@@ -209,6 +243,5 @@ docker compose exec remediation sh -c "wget -qO- http://localhost:8000/status"
 ## Prochaines étapes
 
 1. Assistant RAG local (Ollama + LangChain) pour les opérateurs.
-2. Gestion des secrets par SOPS (en remplacement du `.env`).
-3. Gouvernance : EBIOS RM, PCA/PRA, mapping NIS2/DORA.
-4. Sauvegarde / restauration PostgreSQL (RTO/RPO).
+2. Gouvernance : EBIOS RM, PCA/PRA, mapping NIS2/DORA.
+3. Copie des sauvegardes hors de l'hôte (support hors ligne ou immuable).
