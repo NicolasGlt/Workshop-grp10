@@ -133,6 +133,7 @@ services:
       MERCHANT_API_KEY: ${MERCHANT_API_KEY:?}
       MIN_RPS: "1"
       MAX_RPS: "6"
+      CHARGE_RATIO: "0.05"     # part de paiements (marqués simulated), le reste en ping
     depends_on:
       waf: { condition: service_started }
     networks: [edge]

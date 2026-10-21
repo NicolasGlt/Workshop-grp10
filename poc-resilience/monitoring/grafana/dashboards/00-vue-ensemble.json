@@ -563,7 +563,7 @@
       },
       "targets": [
         {
-          "expr": "sum(payment_payments_total{status=\"approved\"}) / clamp_min(sum(payment_payments_total{status=~\"approved|declined\"}),1)",
+          "expr": "sum(payment_payments_total{status=\"approved\",origin=~\"$origin\"}) / clamp_min(sum(payment_payments_total{status=~\"approved|declined\",origin=~\"$origin\"}),1)",
           "refId": "A",
           "datasource": {
             "type": "prometheus",
@@ -679,8 +679,8 @@
       },
       "targets": [
         {
-          "expr": "sum by (status) (rate(payment_payments_total[1m]))*60",
-          "legendFormat": "{{status}}",
+          "expr": "sum by (status, origin) (rate(payment_payments_total{origin=~\"$origin\"}[1m]))*60",
+          "legendFormat": "{{status}} ({{origin}})",
           "refId": "A",
           "datasource": {
             "type": "prometheus",
@@ -706,11 +706,46 @@
         "tooltip": {
           "mode": "multi"
         }
-      }
+      },
+      "description": "Filtré par Origine (client par défaut). Le trafic simulé reste visible dans Requêtes/s : il fait la normale apprise par ml-detector."
     }
   ],
   "templating": {
-    "list": []
+    "list": [
+      {
+        "name": "origin",
+        "label": "Origine des paiements",
+        "type": "custom",
+        "query": "client,simulated",
+        "current": {
+          "selected": true,
+          "text": "client",
+          "value": "client"
+        },
+        "options": [
+          {
+            "selected": false,
+            "text": "All",
+            "value": "$__all"
+          },
+          {
+            "selected": true,
+            "text": "client",
+            "value": "client"
+          },
+          {
+            "selected": false,
+            "text": "simulated",
+            "value": "simulated"
+          }
+        ],
+        "includeAll": true,
+        "allValue": ".*",
+        "multi": false,
+        "hide": 0,
+        "description": "client = vrais paiements (défaut). simulated = service traffic (X-Traffic-Origin), sert à l'apprentissage de ml-detector."
+      }
+    ]
   },
   "annotations": {
     "list": []
