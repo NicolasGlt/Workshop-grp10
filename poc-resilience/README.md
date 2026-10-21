@@ -44,7 +44,7 @@ Réseaux : `edge` (waf, frontend, merchant) seul exposé ; `app` et `data` inter
 
 ```bash
 cp .env.example .env
-# remplacer les "change-me" ; laisser MERCHANT_API_KEY tel quel (doit matcher le seed)
+# remplacer toutes les valeurs "change-me" (la clé marchand est posée en base au 1er démarrage)
 docker compose up -d --build        # ajouter --scale cadvisor=0 sous Docker Desktop
 docker compose ps
 ./scripts/smoke-test.sh
@@ -156,7 +156,7 @@ docker compose down -v         # réinitialisation complète (BDD + soldes banqu
 | `db` en boucle, `pg_admin disallowed` | le `POSTGRES_USER` ne doit pas commencer par `pg_` (ici `db_admin`) |
 | `db` en boucle, `\r`/`not found` | scripts en CRLF → convertir `db/init/*` en LF, puis `down -v` |
 | Paiement « Banque injoignable » | `docker compose logs bank` ; le paiement reste rejouable |
-| Clé API invalide au `/buy` | `MERCHANT_API_KEY` du `.env` ≠ `api_key` du seed → réaligner, `down -v` |
+| Clé API invalide au `/buy` | `MERCHANT_API_KEY` du `.env` changée après le 1er démarrage → `docker compose exec db sh /docker-entrypoint-initdb.d/06-merchant-key.sh` |
 | Target `cadvisor` down | normal sous Docker Desktop : `--scale cadvisor=0` |
 
 ## Boucle de résilience autonome (détection → remédiation)

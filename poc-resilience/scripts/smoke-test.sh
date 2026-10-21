@@ -11,7 +11,7 @@ BASE="${BASE:-http://localhost}"
 MERCHANT="${MERCHANT:-http://localhost:8082}"
 PROM="${PROM:-http://localhost:9090}"
 GRAFANA="${GRAFANA:-http://localhost:3000}"
-API_KEY="${MERCHANT_API_KEY:-pk_nova_demo_bYtR7xQ2}"
+API_KEY="${MERCHANT_API_KEY:-$(sed -n 's/^MERCHANT_API_KEY=//p' "$(dirname "$0")/../.env" 2>/dev/null)}"
 
 pass=0; fail=0
 ok(){ echo "  [OK]   $1"; pass=$((pass+1)); }
