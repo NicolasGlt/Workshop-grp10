@@ -1,0 +1,272 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>NovaPay — Espace client</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0a0b10; --bg2:#0e1018; --surface:#14171f; --surface2:#191d27;
+    --line:#242a37; --text:#eef1f6; --muted:#8b93a7; --muted2:#5f6677;
+    --accent:#7c5cff; --accent2:#18d6c4; --credit:#3ad98a; --debit:#ff7a85;
+    --radius:20px; --shadow:0 18px 50px rgba(0,0,0,.45);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    font-family:Inter,system-ui,sans-serif;background:radial-gradient(1200px 600px at 80% -10%,rgba(124,92,255,.18),transparent 60%),radial-gradient(900px 500px at 0% 110%,rgba(24,214,196,.12),transparent 55%),var(--bg);
+    color:var(--text);-webkit-font-smoothing:antialiased;min-height:100%;
+  }
+  .wrap{max-width:760px;margin:0 auto;padding:22px 16px 60px}
+  .hidden{display:none!important}
+  button{font-family:inherit;cursor:pointer;border:none}
+  .brand{display:flex;align-items:center;gap:10px;font-weight:800;letter-spacing:-.02em;font-size:20px}
+  .logo{width:30px;height:30px;border-radius:9px;background:linear-gradient(135deg,var(--accent),var(--accent2));display:grid;place-items:center;color:#0a0b10;font-weight:800;font-size:16px}
+
+  /* ---------- Login ---------- */
+  .login{min-height:100dvh;display:grid;place-items:center;padding:24px}
+  .login-card{width:100%;max-width:400px;background:linear-gradient(180deg,var(--surface),var(--bg2));border:1px solid var(--line);border-radius:26px;padding:34px 28px;box-shadow:var(--shadow)}
+  .login-card h1{font-size:22px;font-weight:700;letter-spacing:-.02em;margin:22px 0 4px}
+  .login-card p.sub{color:var(--muted);font-size:14px;margin-bottom:24px}
+  label{display:block;font-size:13px;color:var(--muted);margin:14px 0 7px;font-weight:500}
+  input{width:100%;background:var(--bg);border:1px solid var(--line);border-radius:13px;padding:14px 15px;color:var(--text);font-size:15px;transition:border-color .15s,box-shadow .15s}
+  input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(124,92,255,.18)}
+  .btn{width:100%;margin-top:22px;padding:15px;border-radius:13px;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#0a0b10;font-weight:700;font-size:15px;transition:transform .1s,filter .15s}
+  .btn:hover{filter:brightness(1.07)}.btn:active{transform:translateY(1px)}
+  .btn[disabled]{opacity:.6;cursor:default}
+  .err{color:var(--debit);font-size:13.5px;margin-top:14px;min-height:18px}
+  .demo{margin-top:22px;padding:13px 15px;background:var(--bg);border:1px dashed var(--line);border-radius:13px;font-size:12.5px;color:var(--muted)}
+  .demo b{color:var(--text);font-weight:600}
+  .demo code{color:var(--accent2)}
+  .chip{display:inline-block;margin:6px 6px 0 0;padding:5px 10px;border-radius:999px;background:var(--surface2);border:1px solid var(--line);color:var(--text);font-size:12px;cursor:pointer}
+  .chip:hover{border-color:var(--accent)}
+
+  /* ---------- Dashboard ---------- */
+  .top{display:flex;align-items:center;justify-content:space-between;margin-bottom:26px}
+  .logout{background:var(--surface);border:1px solid var(--line);color:var(--muted);border-radius:11px;padding:9px 13px;font-size:13px;font-weight:500}
+  .logout:hover{color:var(--text);border-color:var(--accent)}
+  .hero{background:linear-gradient(135deg,rgba(124,92,255,.22),rgba(24,214,196,.14)),var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:26px;box-shadow:var(--shadow);margin-bottom:14px}
+  .hero .k{color:var(--muted);font-size:13px;font-weight:500;letter-spacing:.02em}
+  .hero .bal{font-size:42px;font-weight:800;letter-spacing:-.03em;margin:6px 0 2px;font-variant-numeric:tabular-nums}
+  .hero .meta{color:var(--muted);font-size:13px}
+  .accounts{display:flex;flex-direction:column;gap:9px;margin-top:18px}
+  .acct{display:flex;align-items:center;justify-content:space-between;background:rgba(10,11,16,.4);border:1px solid var(--line);border-radius:13px;padding:13px 15px}
+  .acct .ib{font-size:13.5px;color:var(--muted);font-family:ui-monospace,monospace}
+  .acct .sv{font-weight:700;font-variant-numeric:tabular-nums}
+
+  h2.sect{font-size:15px;font-weight:600;color:var(--muted);margin:30px 2px 13px;letter-spacing:.01em}
+  .cards{display:flex;gap:14px;overflow-x:auto;padding:2px 2px 8px;scroll-snap-type:x mandatory}
+  .card{scroll-snap-align:start;flex:0 0 300px;height:196px;border-radius:18px;padding:18px 20px;position:relative;overflow:hidden;color:#fff;box-shadow:var(--shadow);background:linear-gradient(135deg,#2a2550,#123f44);display:flex;flex-direction:column}
+  .card.alt{background:linear-gradient(135deg,#3b2a5e,#1d2440)}
+  .card::after{content:"";position:absolute;right:-40px;top:-40px;width:170px;height:170px;border-radius:50%;background:radial-gradient(circle,rgba(255,255,255,.14),transparent 70%)}
+  .card .row1{display:flex;justify-content:space-between;align-items:center}
+  .card .nm{font-weight:800;letter-spacing:.02em}
+  .card .state{font-size:11px;padding:4px 9px;border-radius:999px;background:rgba(255,255,255,.16);font-weight:600}
+  .card .state.off{background:rgba(255,122,133,.25);color:#ffd7db}
+  .chipico{width:36px;height:27px;border-radius:6px;background:linear-gradient(135deg,#e9d8a6,#c9a24a);margin-top:16px;opacity:.9}
+  .card .pan{font-size:17px;letter-spacing:.08em;margin-top:12px;white-space:nowrap;font-variant-numeric:tabular-nums;font-family:ui-monospace,monospace}
+  .card .row3{display:flex;justify-content:space-between;align-items:flex-end;margin-top:auto;font-size:12px}
+  .card .row3 .lbl{opacity:.6;font-size:9px;letter-spacing:.08em;text-transform:uppercase}
+  .card .holder{font-weight:600;letter-spacing:.04em;text-transform:uppercase}
+
+  .tx{display:flex;flex-direction:column;gap:2px}
+  .txr{display:flex;align-items:center;gap:13px;padding:13px 6px;border-bottom:1px solid var(--line)}
+  .txr:last-child{border-bottom:none}
+  .ic{width:40px;height:40px;border-radius:11px;flex:0 0 40px;display:grid;place-items:center;font-size:17px;background:var(--surface2)}
+  .ic.credit{background:rgba(58,217,138,.14);color:var(--credit)}
+  .ic.debit{background:rgba(255,122,133,.14);color:var(--debit)}
+  .txr .mid{flex:1;min-width:0}
+  .txr .ds{font-size:14.5px;font-weight:500;display:flex;align-items:center;gap:7px}
+  .txr .ds .dstxt{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .txr .dt{font-size:12.5px;color:var(--muted);margin-top:2px}
+  .txr .amt{font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap}
+  .amt.credit{color:var(--credit)}.amt.debit{color:var(--text)}
+  .badge{font-size:10px;padding:2px 7px;border-radius:999px;font-weight:600;flex:0 0 auto}
+  .badge.COMPLETED{background:rgba(58,217,138,.16);color:var(--credit)}
+  .badge.REJECTED,.badge.FAILED{background:rgba(255,122,133,.16);color:var(--debit)}
+  .badge.PENDING,.badge.AUTHORIZED{background:rgba(124,92,255,.16);color:#b9a8ff}
+  .empty{color:var(--muted2);font-size:14px;text-align:center;padding:28px 0}
+  .pauth{background:linear-gradient(135deg,rgba(124,92,255,.12),rgba(24,214,196,.08)),var(--surface);border:1px solid var(--accent);border-radius:14px;padding:15px 18px;display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:10px}
+  .pauth .pa-m{font-weight:700;font-size:16px}
+  .pauth .pa-sub{font-size:13px;color:var(--muted);margin-top:3px}
+  .pauth .pa-act{display:flex;gap:8px;flex:0 0 auto}
+  .pa-ok{background:var(--credit);color:#06281a;font-weight:700;border:none;border-radius:10px;padding:10px 15px;font-size:13px;cursor:pointer}
+  .pa-no{background:transparent;color:var(--debit);border:1px solid var(--debit);border-radius:10px;padding:10px 15px;font-size:13px;font-weight:600;cursor:pointer}
+  .skeleton{color:var(--muted2);text-align:center;padding:40px 0;font-size:14px}
+  footer{margin-top:40px;text-align:center;color:var(--muted2);font-size:12px}
+</style>
+</head>
+<body>
+
+<!-- ============ LOGIN ============ -->
+<section id="login" class="login">
+  <div class="login-card">
+    <div class="brand"><span class="logo">N</span>NovaPay</div>
+    <h1>Bon retour 👋</h1>
+    <p class="sub">Connectez-vous pour consulter vos comptes et vos cartes.</p>
+    <form id="loginForm" autocomplete="off">
+      <label for="email">Email</label>
+      <input id="email" type="email" placeholder="alice@example.com" required>
+      <label for="password">Mot de passe</label>
+      <input id="password" type="password" placeholder="••••••••••" required>
+      <button class="btn" id="loginBtn" type="submit">Se connecter</button>
+      <div class="err" id="loginErr"></div>
+    </form>
+    <div class="demo">
+      <b>Comptes de démonstration</b> — cliquez pour pré-remplir :
+      <div>
+        <span class="chip" data-e="alice@example.com" data-p="Alice_Test_2026!">Alice</span>
+        <span class="chip" data-e="bob@example.com" data-p="Bob_Test_2026!">Bob</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ DASHBOARD ============ -->
+<section id="app" class="wrap hidden">
+  <div class="top">
+    <div class="brand"><span class="logo">N</span>NovaPay</div>
+    <button class="logout" id="logout">Déconnexion</button>
+  </div>
+
+  <div class="hero">
+    <div class="k" id="hello">Solde total</div>
+    <div class="bal" id="totalBal">—</div>
+    <div class="meta" id="balMeta"></div>
+    <div class="accounts" id="accounts"></div>
+  </div>
+
+  <div id="pendingWrap" class="hidden">
+    <h2 class="sect" style="color:var(--accent2)">Demandes à valider</h2>
+    <div id="pending"></div>
+  </div>
+
+  <h2 class="sect">Mes cartes</h2>
+  <div class="cards" id="cards"><div class="skeleton">Chargement…</div></div>
+
+  <h2 class="sect">Opérations récentes</h2>
+  <div class="tx" id="tx"><div class="skeleton">Chargement…</div></div>
+
+  <footer>NovaPay · espace client de démonstration · données lues sur la base du projet</footer>
+</section>
+
+<script>
+const $ = s => document.querySelector(s);
+const TOKEN_KEY = "novapay_token";
+const eur = n => new Intl.NumberFormat("fr-FR",{style:"currency",currency:"EUR"}).format(Number(n||0));
+const fmtDate = s => { try{ return new Date(s).toLocaleDateString("fr-FR",{day:"2-digit",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit"});}catch(e){return s;} };
+let token = null, curName = "";
+
+async function api(path){
+  const r = await fetch(path,{headers:{Authorization:"Bearer "+token}});
+  if(r.status===401){ logout(); throw new Error("auth"); }
+  if(!r.ok) throw new Error("http "+r.status);
+  return r.json();
+}
+
+// ---- login ----
+document.querySelectorAll(".chip").forEach(c=>c.addEventListener("click",()=>{
+  $("#email").value=c.dataset.e; $("#password").value=c.dataset.p; $("#loginErr").textContent="";
+}));
+
+$("#loginForm").addEventListener("submit", async e=>{
+  e.preventDefault();
+  const btn=$("#loginBtn"); btn.disabled=true; $("#loginErr").textContent="";
+  try{
+    const r = await fetch("/api/login",{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({email:$("#email").value.trim(),password:$("#password").value})});
+    const data = await r.json();
+    if(!r.ok) throw new Error(data.detail || "Connexion impossible");
+    token = data.token; localStorage.setItem(TOKEN_KEY, token);
+    await boot(data.name);
+  }catch(err){ $("#loginErr").textContent = err.message; }
+  finally{ btn.disabled=false; }
+});
+
+function logout(){
+  token=null; localStorage.removeItem(TOKEN_KEY);
+  $("#app").classList.add("hidden"); $("#login").classList.remove("hidden");
+  $("#password").value="";
+}
+$("#logout").addEventListener("click", logout);
+
+// ---- render ----
+async function boot(name){
+  curName = name || curName;
+  $("#login").classList.add("hidden"); $("#app").classList.remove("hidden");
+  const prenom = (curName||"").split(" ")[0] || "";
+  $("#hello").textContent = prenom ? `Bonjour ${prenom} · solde total` : "Solde total";
+
+  const [accts, cards, txs, auths] = await Promise.all([api("/api/accounts"),api("/api/cards"),api("/api/transactions"),api("/api/authorizations")]);
+
+  // demandes de validation (3DS)
+  const pw=$("#pendingWrap");
+  if(auths.length){ pw.classList.remove("hidden");
+    $("#pending").innerHTML=auths.map(a=>`<div class="pauth">
+      <div><div class="pa-m">${eur(a.montant)} · ${a.marchand||"Marchand"}</div>
+        <div class="pa-sub">Carte ••${a.card_last4} · ${fmtDate(a.date_transaction)}</div></div>
+      <div class="pa-act"><button class="pa-no" onclick="decide('${a.id_transaction}','refuse')">Refuser</button>
+        <button class="pa-ok" onclick="decide('${a.id_transaction}','approve')">Valider</button></div></div>`).join("");
+  } else { pw.classList.add("hidden"); }
+
+  // solde total
+  const total = accts.reduce((s,a)=>s+Number(a.solde||0),0);
+  $("#totalBal").textContent = eur(total);
+  $("#balMeta").textContent = accts.length>1 ? `${accts.length} comptes` : (accts.length?"1 compte":"Aucun compte");
+  $("#accounts").innerHTML = accts.map(a=>`
+    <div class="acct"><span class="ib">${a.iban_reference||"—"}${a.actif?"":" · inactif"}</span>
+    <span class="sv">${eur(a.solde)}</span></div>`).join("");
+
+  // cartes
+  $("#cards").innerHTML = cards.length ? cards.map((c,i)=>`
+    <div class="card ${i%2?'alt':''}">
+      <div class="row1"><span class="nm">NovaPay</span>
+        <span class="state ${c.actif?'':'off'}">${c.actif?'Active':'Bloquée'}</span></div>
+      <div class="chipico"></div>
+      <div class="pan">•••• •••• •••• ${c.card_last4}</div>
+      <div class="row3">
+        <div><div class="lbl">Titulaire</div><div class="holder">${(name||'').toUpperCase()}</div></div>
+        <div><div class="lbl">Expire</div><div class="holder">••/••</div></div>
+      </div>
+    </div>`).join("") : `<div class="empty">Aucune carte enregistrée.</div>`;
+
+  // transactions
+  $("#tx").innerHTML = txs.length ? txs.map(t=>{
+    const credit = t.sens==="credit";
+    const sign = credit?"+":"−";
+    return `<div class="txr">
+      <div class="ic ${t.sens}">${credit?"↓":"↑"}</div>
+      <div class="mid">
+        <div class="ds"><span class="dstxt">${(t.description||"Transaction")}</span><span class="badge ${t.statut}">${t.statut}</span></div>
+        <div class="dt">${fmtDate(t.date_transaction)}${t.reference_banque?" · "+t.reference_banque:""}</div>
+      </div>
+      <div class="amt ${t.sens}">${sign} ${eur(t.montant)}</div>
+    </div>`;
+  }).join("") : `<div class="empty">Aucune opération.</div>`;
+}
+
+async function decide(id,action){
+  try{
+    const r=await fetch(`/api/authorizations/${id}/${action}`,{method:"POST",headers:{Authorization:"Bearer "+token}});
+    if(!r.ok){ let m="Action impossible (demande déjà traitée ?)";
+      try{ const d=await r.json(); if(d.detail) m=d.detail; }catch(_){}
+      alert(m); }
+  }catch(e){ alert("Action impossible"); }
+  await boot(curName);   // rafraîchit soldes, cartes, opérations et la liste des demandes
+}
+window.decide=decide;
+
+// ---- session restore ----
+(async ()=>{
+  const saved = localStorage.getItem(TOKEN_KEY);
+  if(!saved) return;
+  token = saved;
+  try{ const me = await api("/api/me"); await boot(`${me.prenom} ${me.nom}`); }
+  catch(e){ logout(); }
+})();
+</script>
+</body>
+</html>

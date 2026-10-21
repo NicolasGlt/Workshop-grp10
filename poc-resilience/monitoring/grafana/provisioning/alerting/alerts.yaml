@@ -1,0 +1,169 @@
+apiVersion: 1
+
+groups:
+  - orgId: 1
+    name: Disponibilité
+    folder: Alertes Resilience-Alpha
+    interval: 1m
+    rules:
+      - uid: ra-service-down
+        title: Service applicatif DOWN
+        condition: C
+        for: 1m
+        noDataState: Alerting
+        execErrState: Error
+        labels: { severity: critical }
+        annotations:
+          summary: "Un service (API, banque ou marchand) ne répond plus"
+        data:
+          - refId: A
+            relativeTimeRange: { from: 300, to: 0 }
+            datasourceUid: prometheus
+            model:
+              editorMode: code
+              expr: 'min by (job) (up{job=~"payment-api|bank|merchant"})'
+              instant: true
+              range: false
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: A
+          - refId: C
+            relativeTimeRange: { from: 0, to: 0 }
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator: { type: lt, params: [1] }
+                  operator: { type: and }
+                  query: { params: [C] }
+                  reducer: { type: last }
+                  type: query
+              refId: C
+
+      - uid: ra-postgres-down
+        title: PostgreSQL DOWN
+        condition: C
+        for: 1m
+        noDataState: Alerting
+        execErrState: Error
+        labels: { severity: critical }
+        annotations:
+          summary: "La base de données ne répond plus"
+        data:
+          - refId: A
+            relativeTimeRange: { from: 300, to: 0 }
+            datasourceUid: prometheus
+            model: { editorMode: code, expr: "pg_up", instant: true, range: false, refId: A }
+          - refId: C
+            relativeTimeRange: { from: 0, to: 0 }
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator: { type: lt, params: [1] }
+                  operator: { type: and }
+                  query: { params: [C] }
+                  reducer: { type: last }
+                  type: query
+              refId: C
+
+      - uid: ra-probe-failed
+        title: Endpoint injoignable (sonde)
+        condition: C
+        for: 2m
+        noDataState: Alerting
+        execErrState: Error
+        labels: { severity: warning }
+        annotations:
+          summary: "Une sonde HTTP échoue depuis 2 min : {{ $labels.instance }}"
+        data:
+          - refId: A
+            relativeTimeRange: { from: 300, to: 0 }
+            datasourceUid: prometheus
+            model: { editorMode: code, expr: "probe_success", instant: true, range: false, refId: A }
+          - refId: C
+            relativeTimeRange: { from: 0, to: 0 }
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator: { type: lt, params: [1] }
+                  operator: { type: and }
+                  query: { params: [C] }
+                  reducer: { type: last }
+                  type: query
+              refId: C
+
+  - orgId: 1
+    name: Performance
+    folder: Alertes Resilience-Alpha
+    interval: 1m
+    rules:
+      - uid: ra-high-5xx
+        title: Taux d'erreurs 5xx élevé
+        condition: C
+        for: 5m
+        noDataState: OK
+        execErrState: Error
+        labels: { severity: warning }
+        annotations:
+          summary: "Plus de 5% de réponses 5xx sur l'API depuis 5 min"
+        data:
+          - refId: A
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: prometheus
+            model:
+              editorMode: code
+              expr: 'sum(rate(http_requests_total{job="payment-api",status=~"5.."}[5m])) / clamp_min(sum(rate(http_requests_total{job="payment-api"}[5m])),1e-9)'
+              instant: true
+              range: false
+              refId: A
+          - refId: C
+            relativeTimeRange: { from: 0, to: 0 }
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator: { type: gt, params: [0.05] }
+                  operator: { type: and }
+                  query: { params: [C] }
+                  reducer: { type: last }
+                  type: query
+              refId: C
+
+      - uid: ra-high-latency
+        title: Latence p95 élevée
+        condition: C
+        for: 5m
+        noDataState: OK
+        execErrState: Error
+        labels: { severity: warning }
+        annotations:
+          summary: "Latence p95 de l'API au-dessus de 1s depuis 5 min"
+        data:
+          - refId: A
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: prometheus
+            model:
+              editorMode: code
+              expr: 'histogram_quantile(0.95, sum by (le) (rate(http_request_duration_seconds_bucket{job="payment-api"}[5m])))'
+              instant: true
+              range: false
+              refId: A
+          - refId: C
+            relativeTimeRange: { from: 0, to: 0 }
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator: { type: gt, params: [1] }
+                  operator: { type: and }
+                  query: { params: [C] }
+                  reducer: { type: last }
+                  type: query
+              refId: C

@@ -1,0 +1,14 @@
+---
+# Redémarre un service applicatif (par son label compose) pour le rétablir.
+- hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Redémarrer le conteneur du service {{ service }}
+      ansible.builtin.shell: >
+        docker restart $(docker ps -q -f label=com.docker.compose.service={{ service }} | head -n1)
+      register: restart
+      changed_when: true
+
+    - name: Confirmation
+      ansible.builtin.debug:
+        msg: "Service {{ service }} redémarré"
