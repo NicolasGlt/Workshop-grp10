@@ -86,6 +86,54 @@ demo:
 demo:
     powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/demo-incident.ps1
 
+# Prépare la démo : démarre la stack, attend conteneurs sains et détecteur entraîné, puis les URL
+[unix]
+[working-directory('poc-resilience')]
+demo-prep: up
+    #!/usr/bin/env bash
+    set -uo pipefail
+    PROM="${PROM:-http://localhost:9090}"
+    attendus=$({{ compose }} config --services | wc -l)
+    for i in $(seq 1 60); do
+      etat=$({{ compose }} ps 2>/dev/null)
+      up=$(grep -c " Up " <<<"$etat")
+      if [ "$up" -ge "$attendus" ] && ! grep -Eq "starting|unhealthy|Restarting|Created" <<<"$etat"; then ok=1; break; fi
+      echo "  conteneurs : $up/$attendus démarrés, attente des healthchecks..."; sleep 5
+    done
+    [ "${ok:-0}" = 1 ] || { {{ compose }} ps; echo "ÉCHEC : conteneurs pas tous sains après 5 min"; exit 1; }
+    echo "Conteneurs : $attendus/$attendus sains"
+    entraine(){ curl -s "$PROM/api/v1/query?query=ml_detector_trained" | python3 -c "import sys,json;r=json.load(sys.stdin)['data']['result'];print(r[0]['value'][1] if r else 0)" 2>/dev/null; }
+    for i in $(seq 1 36); do
+      [ "$(entraine)" = 1 ] && break
+      echo "  ml-detector en apprentissage de la normale (~2 min)..."; sleep 10
+    done
+    [ "$(entraine)" = 1 ] || { echo "ÉCHEC : ml_detector_trained != 1 après 6 min, voir just logs ml-detector"; exit 1; }
+    echo "Détecteur entraîné : prêt pour just demo"
+    "{{ just_executable() }}" --justfile "{{ justfile() }}" urls
+
+# Prépare la démo : démarre la stack, attend conteneurs sains et détecteur entraîné, puis les URL
+[windows]
+[working-directory('poc-resilience')]
+[script("powershell.exe", "-NoLogo", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File")]
+[extension(".ps1")]
+demo-prep: up
+    $prom = if ($env:PROM) { $env:PROM } else { "http://localhost:9090" }
+    $attendus = @({{ compose }} config --services).Count
+    $ok = $false
+    for ($i = 0; $i -lt 60; $i++) {
+      $etat = ({{ compose }} ps 2>$null) -join "`n"
+      $up = ([regex]::Matches($etat, " Up ")).Count
+      if ($up -ge $attendus -and $etat -notmatch "starting|unhealthy|Restarting|Created") { $ok = $true; break }
+      Write-Host "  conteneurs : $up/$attendus demarres, attente des healthchecks..."; Start-Sleep -Seconds 5
+    }
+    if (-not $ok) { {{ compose }} ps; Write-Host "ECHEC : conteneurs pas tous sains apres 5 min" -ForegroundColor Red; exit 1 }
+    Write-Host "Conteneurs : $attendus/$attendus sains"
+    function Entraine { try { (Invoke-RestMethod "$prom/api/v1/query?query=ml_detector_trained").data.result[0].value[1] -eq "1" } catch { $false } }
+    for ($i = 0; $i -lt 36 -and -not (Entraine); $i++) { Write-Host "  ml-detector en apprentissage de la normale (~2 min)..."; Start-Sleep -Seconds 10 }
+    if (-not (Entraine)) { Write-Host "ECHEC : ml_detector_trained != 1 apres 6 min, voir just logs ml-detector" -ForegroundColor Red; exit 1 }
+    Write-Host "Detecteur entraine : pret pour just demo" -ForegroundColor Green
+    & "{{ just_executable() }}" --justfile "{{ justfile() }}" urls
+
 # ---------------------------------------------------------------- back-office (auth-faciale)
 
 # Installe l'environnement Python du back-office
