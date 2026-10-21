@@ -108,6 +108,31 @@ def list_users():
     return rows
 
 
+def count_users():
+    return _one("SELECT COUNT(*) AS n FROM users")["n"]
+
+
+def create_first_admin(username, password_hash, embeddings):
+    """Installation (/setup) : crée le premier admin et ses gabarits en une transaction, seulement si
+    la table est encore vide. Le verrou empêche deux installations simultanées de créer deux comptes.
+    Renvoie l'id créé, ou None si un compte existe déjà."""
+    now = time.time()
+
+    def go(c):
+        with c.transaction():
+            c.execute("LOCK TABLE users IN SHARE ROW EXCLUSIVE MODE")
+            if c.execute("SELECT COUNT(*) AS n FROM users").fetchone()["n"]:
+                return None
+            user_id = c.execute(
+                "INSERT INTO users (username, password_hash, role, backoffice_enabled, created_at) "
+                "VALUES (%s, %s, 'admin', 1, %s) RETURNING id", (username, password_hash, now)).fetchone()["id"]
+            for emb in embeddings:
+                c.execute("INSERT INTO face_templates (user_id, embedding, created_at, created_by) "
+                          "VALUES (%s, %s, %s, %s)", (user_id, face.to_blob(emb), now, user_id))
+            return user_id
+    return _run(go)
+
+
 def create_user(username, password_hash, role="lecteur", backoffice_enabled=True):
     return _exec("INSERT INTO users (username, password_hash, role, backoffice_enabled, created_at) "
                  "VALUES (%s, %s, %s, %s, %s) RETURNING id",

@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Back-office, installation</title>
+<style>
+  :root { --bg: #f4f5f9; --card: #fff; --text: #1d1b33; --muted: #6b6a80; --border: #d9dae6;
+          --accent: #3b3f8f; --ok: #1f8a4c; --ko: #c62828; --warn: #b26a00; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #14141c; --card: #1e1e2a; --text: #ececf3; --muted: #a2a1b6; --border: #34344a;
+            --accent: #8f94ff; --ok: #4cc27c; --ko: #ff6b6b; --warn: #f0b04a; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center;
+         background: var(--bg); color: var(--text); font-family: system-ui, sans-serif; padding: 16px; }
+  .card { width: 100%; max-width: 460px; background: var(--card); border: 1px solid var(--border);
+          border-radius: 12px; padding: 28px; }
+  h1 { font-size: 20px; font-weight: 600; margin: 0 0 4px; }
+  .sub { color: var(--muted); font-size: 14px; margin: 0 0 20px; }
+  label { display: block; font-size: 14px; margin: 14px 0 6px; }
+  input { width: 100%; padding: 10px 12px; font-size: 16px; border: 1px solid var(--border);
+          border-radius: 8px; background: var(--bg); color: var(--text); }
+  button { width: 100%; margin-top: 16px; padding: 11px; font-size: 16px; border: 0; border-radius: 8px;
+           background: var(--accent); color: #fff; cursor: pointer; }
+  button:disabled { opacity: .5; cursor: default; }
+  .ge-actions button { padding: 8px 14px; font-size: 14px; }
+  .msg { margin-top: 16px; font-size: 15px; min-height: 22px; }
+  .ok { color: var(--ok); } .ko { color: var(--ko); }
+  a.btn { display: block; text-align: center; margin-top: 16px; padding: 11px; border-radius: 8px;
+          background: var(--accent); color: #fff; text-decoration: none; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<main class="card">
+  <h1>Installation du back-office</h1>
+  <p class="sub">Aucun compte n'existe encore. Créez le premier administrateur : identifiant, mot de passe, puis visage
+    sous 5 angles. Cette page se ferme définitivement ensuite.</p>
+
+  <form id="f-setup" autocomplete="off">
+    <label for="username">Identifiant</label>
+    <input id="username" name="username" required autofocus>
+    <label for="password">Mot de passe (8 caractères minimum)</label>
+    <input id="password" name="password" type="password" minlength="8" required>
+    <label for="confirm">Confirmation du mot de passe</label>
+    <input id="confirm" name="confirm" type="password" minlength="8" required>
+    <button type="submit">Enrôler mon visage</button>
+  </form>
+
+  <div id="enroll" hidden>
+    <p class="sub">Seul face à la webcam USB, à 50 cm environ. Suivez la consigne : chaque angle est pris
+      automatiquement dès qu'il est tenu.</p>
+    <div id="ge"></div>
+  </div>
+  <div id="msg" class="msg" role="status"></div>
+  <a id="go" class="btn" href="/" hidden>Aller à la connexion</a>
+</main>
+<script src="/static/enroll.js"></script>
+<script>
+const $ = (id) => document.getElementById(id);
+const message = (text, kind = "") => { $("msg").textContent = text; $("msg").className = "msg " + kind; };
+
+$("f-setup").addEventListener("submit", (e) => {
+  e.preventDefault();
+  const body = { username: $("username").value.trim(), password: $("password").value, confirm: $("confirm").value };
+  if (!body.username) { message("Identifiant vide.", "ko"); return; }
+  if (body.password.length < 8) { message("Le mot de passe doit faire au moins 8 caractères.", "ko"); return; }
+  if (body.password !== body.confirm) { message("La confirmation ne correspond pas au mot de passe.", "ko"); return; }
+  message("");
+  $("f-setup").hidden = true; $("enroll").hidden = false;
+  guidedEnroll($("ge"), {
+    start: () => fetch("/api/setup/start", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }),
+    onEnd: (s) => {
+      if (s.status === "done") {
+        message(`Administrateur ${s.result.username} créé. Connectez-vous : identifiant, visage, puis mot de passe.`, "ok");
+        $("go").hidden = false;
+        $("password").value = $("confirm").value = "";
+      } else if (/installation/.test(s.error || "")) {
+        message("Un compte existe déjà : l'installation est fermée.", "ko");
+        $("go").hidden = false;
+      } else {
+        message("Recommencez, ou corrigez l'identifiant et le mot de passe.", "");
+        $("f-setup").hidden = false;
+      }
+    },
+  });
+});
+</script>
+</body>
+</html>

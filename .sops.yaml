@@ -1,0 +1,8 @@
+# Règles de création SOPS : quels fichiers chiffrer, et pour quelles clés age.
+# Une clé PUBLIQUE age par membre (et une pour le PC Hôte de la démo), séparées
+# par des virgules. Les clés privées ne quittent jamais leur poste : voir
+# poc-resilience/secrets/README.md. Après tout ajout ou retrait : just secrets-updatekeys
+creation_rules:
+  - path_regex: poc-resilience[/\\]secrets[/\\][^/\\]+\.enc\.env$
+    age: >-
+      age1-CLE-PUBLIQUE-A-REMPLACER

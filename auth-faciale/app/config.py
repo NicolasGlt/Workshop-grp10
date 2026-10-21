@@ -31,7 +31,18 @@ CAM_INDEX = _env("CAM_INDEX", 1, int)                    # webcam USB (index 0 =
 FACE_THRESHOLD = _env("FACE_THRESHOLD", 0.363, float)    # seuil cosinus SFace
 FACE_HITS = _env("FACE_HITS", 3, int)                    # images au-dessus du seuil pour reconnaître
 FACE_TIMEOUT_S = _env("FACE_TIMEOUT_S", 5.0, float)      # durée max de la vérification
-ENROLL_SAMPLES = 5
+
+# Enrôlement guidé : un gabarit par angle (app/enroll.py). Seuils sans unité, relatifs au visage.
+ENROLL_ANGLES = [("face", "De face"), ("left", "Tête tournée à gauche"), ("right", "Tête tournée à droite"),
+                 ("up", "Tête levée"), ("down", "Tête baissée")]
+ENROLL_SAMPLES = len(ENROLL_ANGLES)
+ENROLL_ANGLE_TIMEOUT_S = _env("ENROLL_ANGLE_TIMEOUT_S", 20.0, float)   # par angle
+ENROLL_HOLD_FRAMES = _env("ENROLL_HOLD_FRAMES", 4, int)      # images consécutives à l'angle avant capture
+ENROLL_FRONT_MAX = _env("ENROLL_FRONT_MAX", 0.08, float)     # lacet max de face (nez / écart des yeux)
+ENROLL_YAW_MIN = _env("ENROLL_YAW_MIN", 0.15, float)         # lacet min à gauche et à droite (~15-20°)
+ENROLL_PITCH_MIN = _env("ENROLL_PITCH_MIN", 0.08, float)     # tangage min en haut et en bas
+ENROLL_MIN_FACE_PX = _env("ENROLL_MIN_FACE_PX", 80, int)     # largeur min du visage dans l'image
+ENROLL_YAW_SIGN = _env("ENROLL_YAW_SIGN", 1, int)            # -1 si gauche et droite sont inversées
 
 COOLDOWN_S = 30          # rouge fixe : saisie impossible, caméra allumée, puis caméra coupée
 LOCK_S = 300             # blocage de l'identifiant

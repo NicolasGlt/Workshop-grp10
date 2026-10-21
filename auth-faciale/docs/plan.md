@@ -154,7 +154,7 @@ CREATE TABLE auth_events (
   username TEXT, event TEXT, score REAL, detail TEXT);
 ```
 
-Le premier admin est créé et enrôlé par `scripts/create_user.py <identifiant> --role admin` : sans lui, personne ne pourrait se connecter pour enrôler les autres.
+Le premier admin est créé et enrôlé par la page `/setup` (poste local seulement, fermée dès qu'un compte existe), ou en secours par `scripts/create_user.py <identifiant> --role admin` : sans lui, personne ne pourrait se connecter pour enrôler les autres.
 
 Les événements sont aussi écrits en JSON sur la sortie standard, pour que Loki puisse les ramasser une fois le SI en place (lien avec le SIEM).
 

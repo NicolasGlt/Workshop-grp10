@@ -41,9 +41,12 @@ _h = logging.StreamHandler(); _h.setFormatter(JsonFormatter())
 log = logging.getLogger("payment-api"); log.addHandler(_h); log.setLevel(logging.INFO); log.propagate = False
 
 
-def db_log(conn, event, ip=None, description="", level="INFO", id_transaction=None):
+def db_log(conn, event, ip=None, description="", level="INFO", id_transaction=None, origin=None):
     """Journalise sur stdout (JSON -> Loki) et dans la table `logs` du modèle bancaire."""
-    log.info(event, extra={"fields": {"ip": ip, "description": description}})
+    fields = {"ip": ip, "description": description}
+    if origin:
+        fields["origin"] = origin
+    log.info(event, extra={"fields": fields})
     try:
         conn.execute(
             "INSERT INTO logs (id_transaction, type_event, niveau, adresse_ip, description) "
@@ -54,9 +57,11 @@ def db_log(conn, event, ip=None, description="", level="INFO", id_transaction=No
         log.warning("log_insert_failed", extra={"fields": {"event": event}})
 
 
-PAYMENTS = Counter("payment_payments_total", "Paiements par statut", ["status"])
-PAYMENT_AMOUNT = Counter("payment_amount_euros_total", "Montant cumulé des paiements approuvés")
-BANK_CALLS = Counter("payment_bank_calls_total", "Appels à la banque", ["outcome"])
+# origin = "client" (vrai appelant) ou "simulated" (service traffic) : les dashboards
+# métier n'affichent que les clients par défaut.
+PAYMENTS = Counter("payment_payments_total", "Paiements par statut", ["status", "origin"])
+PAYMENT_AMOUNT = Counter("payment_amount_euros_total", "Montant cumulé des paiements approuvés", ["origin"])
+BANK_CALLS = Counter("payment_bank_calls_total", "Appels à la banque", ["outcome", "origin"])
 CARD_VALIDATION = Counter("payment_card_validation_total", "Validation carte côté passerelle", ["result"])
 
 pool = ConnectionPool(DATABASE_URL, min_size=1, max_size=10, open=False, kwargs={"row_factory": dict_row})
@@ -103,6 +108,11 @@ def card_brand(number: str) -> str:
 def client_ip(request: Request) -> str:
     xff = request.headers.get("x-forwarded-for", "")
     return xff.split(",")[0].strip() if xff else (request.client.host if request.client else "unknown")
+
+
+def traffic_origin(x_traffic_origin: str = Header(default="client")) -> str:
+    """Marqueur posé par le service traffic (en-tête X-Traffic-Origin). Défaut : client."""
+    return "simulated" if x_traffic_origin.strip().lower() == "simulated" else "client"
 
 
 def current_merchant(x_api_key: str = Header(default="")) -> dict:
@@ -167,8 +177,10 @@ def validate_card(card: Card) -> str | None:
 
 
 @app.post("/charge", status_code=201)
-def charge(body: ChargeIn, request: Request, merchant: dict = Depends(current_merchant)):
+def charge(body: ChargeIn, request: Request, merchant: dict = Depends(current_merchant),
+           origin: str = Depends(traffic_origin)):
     ip = client_ip(request)
+    sim = "[SIM] " if origin == "simulated" else ""
     number = re.sub(r"\s+", "", body.card.number)
 
     # 1) Validation côté passerelle (avant tout appel banque)
@@ -197,7 +209,7 @@ def charge(body: ChargeIn, request: Request, merchant: dict = Depends(current_me
     # Une carte enrôlée est rattachée à un compte client : le paiement est un virement
     # du compte du PORTEUR vers le marchand. On ne peut pas payer son propre compte marchand.
     if enrolled and enrolled["id_compte_bancaire"] != merchant["id_compte_bancaire"]:
-        desc = f"Commande {body.order_ref} · {brand.upper()} ••{last4} · validation bancaire en attente"
+        desc = f"{sim}Commande {body.order_ref} · {brand.upper()} ••{last4} · validation bancaire en attente"
         with pool.connection() as conn, conn.transaction():
             tx = conn.execute(
                 """INSERT INTO transactions
@@ -220,8 +232,8 @@ def charge(body: ChargeIn, request: Request, merchant: dict = Depends(current_me
                  body.amount, body.currency.upper()),
             )
             db_log(conn, "payment_pending_3ds", ip, f"montant={body.amount} last4={last4}",
-                   level="INFO", id_transaction=txid)
-        PAYMENTS.labels("pending").inc()
+                   level="INFO", id_transaction=txid, origin=origin)
+        PAYMENTS.labels("pending", origin).inc()
         return jsonable_encoder({"payment_id": txid, "last4": last4, "brand": brand, "status": "pending_auth"})
 
     # 3) Carte non enrôlée -> autorisation banque classique (instantanée)
@@ -234,16 +246,17 @@ def charge(body: ChargeIn, request: Request, merchant: dict = Depends(current_me
         resp.raise_for_status()
         decision = resp.json()
     except (httpx.HTTPError, ValueError):
-        BANK_CALLS.labels("error").inc()
-        PAYMENTS.labels("failed").inc()
-        log.warning("payment_bank_unreachable", extra={"fields": {"ip": ip, "merchant": merchant["name"]}})
+        BANK_CALLS.labels("error", origin).inc()
+        PAYMENTS.labels("failed", origin).inc()
+        log.warning("payment_bank_unreachable",
+                    extra={"fields": {"ip": ip, "merchant": merchant["name"], "origin": origin}})
         raise HTTPException(status_code=502, detail="Banque injoignable, réessayez")
 
-    BANK_CALLS.labels("ok").inc()
+    BANK_CALLS.labels("ok", origin).inc()
     approved = decision["decision"] == "approved"
     statut = "COMPLETED" if approved else "REJECTED"
     reason = None if approved else decision.get("reason", "declined")
-    desc = (f"Commande {body.order_ref} · {brand.upper()} ••{last4}"
+    desc = (f"{sim}Commande {body.order_ref} · {brand.upper()} ••{last4}"
             + ("" if approved else f" · refus:{reason}"))
 
     with pool.connection() as conn, conn.transaction():
@@ -267,14 +280,14 @@ def charge(body: ChargeIn, request: Request, merchant: dict = Depends(current_me
             )
             db_log(conn, "payment_approved", ip,
                    f"montant={body.amount} last4={last4} ref={decision.get('bank_reference')}",
-                   level="INFO", id_transaction=txid)
-            PAYMENTS.labels("approved").inc(); PAYMENT_AMOUNT.inc(float(body.amount))
+                   level="INFO", id_transaction=txid, origin=origin)
+            PAYMENTS.labels("approved", origin).inc(); PAYMENT_AMOUNT.labels(origin).inc(float(body.amount))
             result = {"status": "approved", "auth_code": decision.get("auth_code"),
                       "bank_reference": decision.get("bank_reference")}
         else:
             db_log(conn, "payment_declined", ip, f"reason={reason} last4={last4}",
-                   level="WARNING", id_transaction=txid)
-            PAYMENTS.labels("declined").inc()
+                   level="WARNING", id_transaction=txid, origin=origin)
+            PAYMENTS.labels("declined", origin).inc()
             result = {"status": "declined", "reason": reason}
 
         # Commande boutique (achat invité) liée au marchand et à la transaction.

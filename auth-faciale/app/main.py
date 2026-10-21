@@ -4,6 +4,7 @@ Lancement (depuis la racine du dossier) :
     .venv\\Scripts\\python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
 Écoute sur 127.0.0.1 seulement : le back-office n'est pas exposé sur le point d'accès.
 """
+import ipaddress
 import threading
 import time
 from contextlib import asynccontextmanager
@@ -14,7 +15,7 @@ from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, Stre
 from pydantic import BaseModel
 from starlette.middleware.sessions import SessionMiddleware
 
-from . import auth, config, db, led
+from . import auth, config, db, enroll, led
 from .camera import camera
 
 STATIC = config.ROOT / "app" / "static"
@@ -68,9 +69,42 @@ def _page(name):
     return FileResponse(path)
 
 
+def is_local(request: Request):
+    """Client en boucle locale (127.0.0.0/8 ou ::1) : le poste lui-même."""
+    try:
+        return ipaddress.ip_address(request.client.host).is_loopback
+    except (AttributeError, ValueError):
+        return False
+
+
+def setup_open():
+    """Installation ouverte tant qu'aucun compte n'existe. Base injoignable : fermée."""
+    try:
+        return db.count_users() == 0
+    except Exception:
+        return False
+
+
 @app.get("/")
 def page_login():
+    if setup_open():
+        return RedirectResponse("/setup")
     return _page("login.html")
+
+
+@app.get("/setup")
+def page_setup(request: Request):
+    """Création du premier admin, depuis le poste seulement, fermée dès qu'un compte existe."""
+    if not is_local(request):
+        raise HTTPException(403, "installation possible uniquement depuis le poste lui-même")
+    if not setup_open():
+        return RedirectResponse("/")
+    return _page("setup.html")
+
+
+@app.get("/static/enroll.js")
+def static_enroll_js():
+    return FileResponse(STATIC / "enroll.js", media_type="text/javascript")
 
 
 @app.get("/backoffice")
@@ -136,6 +170,66 @@ def api_logout(request: Request):
 def api_me(request: Request):
     user = require_user(request)
     return {"username": user["username"], "role": user["role"]}
+
+
+# --- installation et enrôlement guidé --------------------------------------------------
+
+class SetupIn(BaseModel):
+    username: str
+    password: str
+    confirm: str
+
+
+def _started(request: Request, session):
+    if not session:
+        return JSONResponse({"status": "busy", **auth.kiosk.snapshot()}, status_code=409)
+    request.session["enroll_id"] = session.id      # seule cette session de navigateur suit l'enrôlement
+    return JSONResponse({"status": "started", "id": session.id}, status_code=202)
+
+
+@app.post("/api/setup/start")
+def setup_start(body: SetupIn, request: Request):
+    if not is_local(request):
+        raise HTTPException(403, "installation possible uniquement depuis le poste lui-même")
+    if not setup_open():
+        raise HTTPException(404, "installation déjà faite")
+    username = auth.normalize(body.username)
+    if not username:
+        raise HTTPException(400, "identifiant vide")
+    if len(body.password) < 8:
+        raise HTTPException(400, "mot de passe < 8 caractères")
+    if body.password != body.confirm:
+        raise HTTPException(400, "la confirmation ne correspond pas au mot de passe")
+    password_hash = auth.hash_password(body.password)
+
+    def on_success(embeddings):
+        if db.create_first_admin(username, password_hash, embeddings) is None:
+            raise enroll.Refused("un compte existe déjà : installation fermée")
+        db.event(username, "setup_admin_created", detail=f"{len(embeddings)} angles")
+        return {"username": username}
+
+    def on_failure(reason):
+        db.event(username, "face_enroll_failed", detail=f"installation : {reason}")
+
+    return _started(request, enroll.start(username, on_success, on_failure, purpose="setup"))
+
+
+def _my_enrollment(request: Request):
+    session = enroll.current()
+    if not session or request.session.get("enroll_id") != session.id:
+        raise HTTPException(404, "aucun enrôlement lancé depuis cette page")
+    return session
+
+
+@app.get("/api/enroll/state")
+def enroll_state(request: Request):
+    return _my_enrollment(request).snapshot()
+
+
+@app.post("/api/enroll/cancel")
+def enroll_cancel(request: Request):
+    _my_enrollment(request).cancel()
+    return {"status": "ok"}
 
 
 # --- back-office du SI de paiement (lecture seule, rôle backoffice en base) -------------
@@ -261,10 +355,17 @@ def admin_enroll(user_id: int, request: Request):
     target = db.get_user_by_id(user_id)
     if not target:
         raise HTTPException(404, "utilisateur inconnu")
-    payload, code = auth.enroll(user_id, created_by=admin["id"])
-    db.event(admin["username"], "face_enrolled" if code == 200 else "face_enroll_failed",
-             detail=target["username"])
-    return JSONResponse(payload, status_code=code)
+    name = target["username"]
+
+    def on_success(embeddings):
+        db.replace_templates(user_id, embeddings, admin["id"])
+        db.event(admin["username"], "face_enrolled", detail=f"{name} : {len(embeddings)} angles")
+        return {"username": name}
+
+    def on_failure(reason):
+        db.event(admin["username"], "face_enroll_failed", detail=f"{name} : {reason}")
+
+    return _started(request, enroll.start(name, on_success, on_failure, purpose="admin"))
 
 
 @app.delete("/api/admin/users/{user_id}/face")

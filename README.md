@@ -89,10 +89,15 @@ Cartes de test : `5555 5555 5555 4444` approuvée directement, `4242 4242 4242 4
 | Preuve | Commande |
 |---|---|
 | Chaîne de paiement, WAF, observabilité | `just smoke` |
-| Boucle autonome : paiement, flood, détection ML, blocage de l'attaquant, paiement | `just demo`, environ 2 min après `just up` (apprentissage du détecteur) |
+| Stack prête pour la démo : conteneurs sains, détecteur entraîné | `just demo-prep` |
+| Boucle autonome : paiement, flood, détection ML, blocage de l'attaquant, paiement | `just demo`, après `just demo-prep` |
 | Authentification du back-office | [auth-faciale/docs/recette.md](auth-faciale/docs/recette.md) |
 
 Pendant la démo : Grafana, dashboard **07 · Résilience**, et `just logs ml-detector remediation`.
+
+Le service `traffic` simule des clients pour que le détecteur apprenne une normale : ses paiements portent `origin="simulated"` et ses transactions sont préfixées `[SIM]`. Les dashboards 00 et 01 n'affichent que les paiements clients par défaut (variable **Origine des paiements**).
+
+Déroulé du jour J, minute par minute, et plan B : [docs/demo-jour-j.md](docs/demo-jour-j.md).
 
 ## Secrets
 

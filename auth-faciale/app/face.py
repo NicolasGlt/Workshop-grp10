@@ -1,4 +1,5 @@
-"""Reconnaissance faciale : YuNet (détection) + SFace (vecteur de 128 nombres, similarité cosinus)."""
+"""Reconnaissance faciale : YuNet (détection, 5 points de repère) + SFace (vecteur de 128 nombres,
+similarité cosinus). L'enrôlement guidé est dans `app/enroll.py`."""
 import threading
 import time
 
@@ -55,19 +56,69 @@ def verify(cam, refs, threshold=None, hits_needed=None, timeout=None):
     return False, best
 
 
-def enroll(cam, samples=None, interval=0.5, timeout=15.0):
-    """Capture `samples` gabarits espacés de `interval` s, uniquement quand un seul visage est visible."""
-    samples = config.ENROLL_SAMPLES if samples is None else samples
-    out, seq, last, end = [], -1, 0.0, time.time() + timeout
-    while len(out) < samples and time.time() < end:
-        seq, frame = cam.next_frame(seq)
-        if frame is None or time.time() - last < interval:
-            continue
-        emb, n = embed(frame)
-        if emb is not None and n == 1:
-            out.append(emb)
-            last = time.time()
-    return out
+def detect(frame):
+    """(plus grand visage au format YuNet ou None, nombre de visages détectés)."""
+    with _lock:
+        h, w = frame.shape[:2]
+        _det.setInputSize((w, h))
+        _, faces = _det.detect(frame)
+    if faces is None:
+        return None, 0
+    return max(faces, key=lambda f: f[2] * f[3]), len(faces)
+
+
+def embed_face(frame, face_row):
+    """Gabarit SFace d'un visage déjà détecté (évite une seconde détection)."""
+    with _lock:
+        return _rec.feature(_rec.alignCrop(frame, face_row)).copy()
+
+
+def pose(face_row):
+    """Orientation de la tête d'après les 5 points de repère de YuNet, sans unité :
+    - `yaw` (lacet) : décalage horizontal du nez par rapport au milieu des yeux, divisé par
+      l'écart entre les yeux. Positif quand le nez part vers la droite de l'IMAGE ;
+    - `pitch` (tangage) : position verticale du nez entre la ligne des yeux (0) et celle de la
+      bouche (1). Elle baisse quand on lève la tête, monte quand on la baisse ;
+    - `size` : largeur du cadre du visage, en pixels.
+    Ratios entre points du visage : indépendants de la distance à la caméra."""
+    x, y, w, h = (float(v) for v in face_row[:4])
+    rex, rey, lex, ley, nx, ny, rmx, rmy, lmx, lmy = (float(v) for v in face_row[4:14])
+    eye_x, eye_y = (rex + lex) / 2, (rey + ley) / 2
+    mouth_y = (rmy + lmy) / 2
+    iod = max(((lex - rex) ** 2 + (ley - rey) ** 2) ** 0.5, 1e-6)
+    return {"yaw": (nx - eye_x) / iod,
+            "pitch": (ny - eye_y) / max(mouth_y - eye_y, 1e-6),
+            "size": w}
+
+
+def check_angle(step, p, baseline=None):
+    """L'angle demandé est-il atteint ? Renvoie (atteint, consigne de correction).
+    `baseline` = pose mesurée de face : les angles se jugent par rapport à elle, pas dans l'absolu.
+    Le sens du lacet suit `ENROLL_YAW_SIGN` (1 : image non retournée, la gauche de la personne
+    est la droite de l'image)."""
+    if p["size"] < config.ENROLL_MIN_FACE_PX:
+        return False, "Rapprochez-vous de la caméra"
+    sign = config.ENROLL_YAW_SIGN
+    if step == "face":
+        if abs(p["yaw"]) > config.ENROLL_FRONT_MAX:
+            return False, "Regardez droit vers la caméra"
+        return True, "Ne bougez plus"
+    base = baseline or {"yaw": 0.0, "pitch": p["pitch"]}
+    dyaw = sign * (p["yaw"] - base["yaw"])
+    dpitch = p["pitch"] - base["pitch"]
+    if step == "left":
+        ok = dyaw >= config.ENROLL_YAW_MIN
+        return ok, "Ne bougez plus" if ok else "Tournez encore la tête vers votre gauche"
+    if step == "right":
+        ok = -dyaw >= config.ENROLL_YAW_MIN
+        return ok, "Ne bougez plus" if ok else "Tournez encore la tête vers votre droite"
+    if step == "up":
+        ok = -dpitch >= config.ENROLL_PITCH_MIN
+        return ok, "Ne bougez plus" if ok else "Levez encore un peu la tête"
+    if step == "down":
+        ok = dpitch >= config.ENROLL_PITCH_MIN
+        return ok, "Ne bougez plus" if ok else "Baissez encore un peu la tête"
+    raise ValueError(f"angle inconnu : {step}")
 
 
 def to_blob(emb):

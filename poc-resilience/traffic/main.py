@@ -4,6 +4,8 @@ Une plateforme de paiement n'est jamais muette : ce service produit une activit�
 normale et variable (consultation, paiements par carte non enrôlée, quelques refus),
 pour que les dashboards vivent et que ml-detector apprenne une normale réaliste.
 Passe par le WAF comme un vrai marchand. Aucune donnée réelle : cartes de test.
+Chaque paiement porte l'en-tête X-Traffic-Origin: simulated : l'API le compte à part
+(label origin) et préfixe la transaction de [SIM], les chiffres métier restent propres.
 """
 
 import json
@@ -19,6 +21,9 @@ BASE = os.getenv("TARGET_URL", "http://waf:8080")
 API_KEY = os.environ["MERCHANT_API_KEY"]
 MIN_RPS = float(os.getenv("MIN_RPS", "1"))
 MAX_RPS = float(os.getenv("MAX_RPS", "6"))
+# Part des requêtes qui sont des paiements, le reste en /api/ping : le débit total,
+# dont ml-detector a besoin pour apprendre, ne dépend pas de ce réglage.
+CHARGE_RATIO = float(os.getenv("CHARGE_RATIO", "0.05"))
 
 # Cartes de test non enrôlées (pas de 3DS) : approuvée, puis refus fonds insuffisants.
 CARDS = ["5555555555554444"] * 9 + ["4000000000000002"]
@@ -39,18 +44,18 @@ def charge(client: httpx.Client) -> int:
         "card": {"number": random.choice(CARDS), "exp_month": 12, "exp_year": 30,
                  "cvv": "123", "holder": "CLIENT SIMULE"},
     }
-    return client.post(f"{BASE}/api/charge", json=body, headers={"X-Api-Key": API_KEY}).status_code
+    return client.post(f"{BASE}/api/charge", json=body, headers={"X-Api-Key": API_KEY, "X-Traffic-Origin": "simulated"}).status_code
 
 
 def main():
-    audit("startup", target=BASE, min_rps=MIN_RPS, max_rps=MAX_RPS)
+    audit("startup", target=BASE, min_rps=MIN_RPS, max_rps=MAX_RPS, charge_ratio=CHARGE_RATIO)
     with httpx.Client(timeout=5.0, headers={"User-Agent": "poc-traffic/1.0"}) as client:
         rps, sent, errors = MIN_RPS, 0, 0
         while True:
             # Débit qui dérive lentement entre MIN_RPS et MAX_RPS, comme une journée calme.
             rps = min(MAX_RPS, max(MIN_RPS, rps + random.uniform(-0.5, 0.5)))
             try:
-                if random.random() < 0.15:
+                if random.random() < CHARGE_RATIO:
                     charge(client)
                 else:
                     client.get(f"{BASE}/api/ping")
