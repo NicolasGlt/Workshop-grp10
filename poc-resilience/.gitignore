@@ -1,8 +1,0 @@
-.env
-frontend/node_modules/
-frontend/dist/
-__pycache__/
-_diag*.txt
-*.log
-.DS_Store
-_to_delete/

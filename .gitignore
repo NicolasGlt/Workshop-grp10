@@ -1,0 +1,28 @@
+# --- Python
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# --- Node / frontend
+node_modules/
+dist/
+
+# --- Secrets et configuration locale (les modèles .env.example restent versionnés)
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# --- Données locales
+*.db
+*.sqlite
+*.log
+
+# --- Système et IDE
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
