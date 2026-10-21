@@ -21,6 +21,8 @@ import time
 
 os.environ["OPENCV_VIDEOIO_MSMF_ENABLE_HW_TRANSFORMS"] = "0"
 import cv2
+
+_BACKEND = {"win32": cv2.CAP_MSMF, "linux": cv2.CAP_V4L2}.get(sys.platform, cv2.CAP_ANY)   # comme app/camera.py
 import numpy as np
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -47,7 +49,7 @@ def main():
     path = sys.argv[1]
     index = int(sys.argv[2]) if len(sys.argv) > 2 else 1
     refs = list(np.load(path)) if os.path.exists(path) else []
-    cap = cv2.VideoCapture(index, cv2.CAP_MSMF)
+    cap = cv2.VideoCapture(index, _BACKEND)
 
     label = int(sys.argv[3]) if len(sys.argv) > 3 else 0
     scores = {k: [] for k in LABELS}

@@ -10,10 +10,12 @@ import time
 
 import cv2
 
+_BACKEND = {"win32": cv2.CAP_MSMF, "linux": cv2.CAP_V4L2}.get(sys.platform, cv2.CAP_ANY)   # comme app/camera.py
+
 
 def probe(index, out_dir):
     t0 = time.perf_counter()
-    cap = cv2.VideoCapture(index, cv2.CAP_DSHOW)
+    cap = cv2.VideoCapture(index, _BACKEND)
     opened = cap.isOpened()
     t_open = time.perf_counter() - t0
     if not opened:
@@ -36,7 +38,7 @@ def probe(index, out_dir):
 
 
 def show(index):
-    cap = cv2.VideoCapture(index, cv2.CAP_DSHOW)
+    cap = cv2.VideoCapture(index, _BACKEND)
     while True:
         ok, frame = cap.read()
         if not ok:
