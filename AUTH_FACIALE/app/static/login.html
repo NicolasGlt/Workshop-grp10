@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Back-office, connexion</title>
+<style>
+  :root { --bg: #f4f5f9; --card: #fff; --text: #1d1b33; --muted: #6b6a80; --border: #d9dae6;
+          --accent: #3b3f8f; --ok: #1f8a4c; --ko: #c62828; --warn: #b26a00; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #14141c; --card: #1e1e2a; --text: #ececf3; --muted: #a2a1b6; --border: #34344a;
+            --accent: #8f94ff; --ok: #4cc27c; --ko: #ff6b6b; --warn: #f0b04a; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center;
+         background: var(--bg); color: var(--text); font-family: system-ui, sans-serif; padding: 16px; }
+  .card { width: 100%; max-width: 420px; background: var(--card); border: 1px solid var(--border);
+          border-radius: 12px; padding: 28px; }
+  h1 { font-size: 20px; font-weight: 600; margin: 0 0 4px; }
+  .sub { color: var(--muted); font-size: 14px; margin: 0 0 20px; }
+  label { display: block; font-size: 14px; margin: 14px 0 6px; }
+  input { width: 100%; padding: 10px 12px; font-size: 16px; border: 1px solid var(--border);
+          border-radius: 8px; background: var(--bg); color: var(--text); }
+  input:disabled { opacity: .5; }
+  button { width: 100%; margin-top: 16px; padding: 11px; font-size: 16px; border: 0; border-radius: 8px;
+           background: var(--accent); color: #fff; cursor: pointer; }
+  button:disabled { opacity: .5; cursor: default; }
+  .cam { margin-top: 18px; aspect-ratio: 4 / 3; border-radius: 8px; border: 3px solid var(--border);
+         background: #000; overflow: hidden; display: flex; align-items: center; justify-content: center;
+         color: #aaa; font-size: 14px; }
+  .cam img { width: 100%; height: 100%; object-fit: cover; }
+  .cam.ok { border-color: var(--ok); } .cam.ko { border-color: var(--ko); } .cam.wait { border-color: var(--warn); }
+  .msg { margin-top: 16px; font-size: 15px; min-height: 22px; }
+  .msg.ok { color: var(--ok); } .msg.ko { color: var(--ko); } .msg.warn { color: var(--warn); }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<main class="card">
+  <h1>Back-office</h1>
+  <p class="sub">Connexion renforcée : identifiant, visage, puis mot de passe.</p>
+
+  <form id="f-user" autocomplete="off">
+    <label for="username">Identifiant</label>
+    <input id="username" name="username" required autofocus>
+    <button id="b-user" type="submit">Continuer</button>
+  </form>
+
+  <form id="f-pwd" autocomplete="off" hidden>
+    <label for="password">Mot de passe</label>
+    <input id="password" name="password" type="password" required>
+    <button id="b-pwd" type="submit">Se connecter</button>
+  </form>
+
+  <div id="cam" class="cam" hidden><span id="cam-off">Activation de la caméra…</span><img id="flux" alt="Caméra" hidden></div>
+  <div id="msg" class="msg" role="status"></div>
+</main>
+<script>
+const $ = (id) => document.getElementById(id);
+let loginId = null, timer = null, streaming = false, poll = null;
+
+function message(text, kind = "") { $("msg").textContent = text; $("msg").className = "msg " + kind; }
+
+function countdown(seconds, render, done) {
+  clearInterval(timer);
+  let left = Math.ceil(seconds);
+  render(left);
+  timer = setInterval(() => { left -= 1; if (left <= 0) { clearInterval(timer); done(); } else render(left); }, 1000);
+}
+
+function mmss(s) { return s >= 60 ? `${Math.floor(s / 60)} min ${String(s % 60).padStart(2, "0")} s` : `${s} s`; }
+
+// Affiche le flux tant que le serveur dit que la caméra est allumée (la caméra est pilotée côté serveur).
+function watchCamera() {
+  clearInterval(poll);
+  poll = setInterval(async () => {
+    try {
+      const s = await (await fetch("/api/state", { cache: "no-store" })).json();
+      if (s.camera && !streaming) { $("cam").hidden = false; $("flux").src = "/camera/stream?t=" + Date.now(); $("flux").hidden = false; $("cam-off").hidden = true; streaming = true; }
+      if (!s.camera && streaming) { $("flux").removeAttribute("src"); $("flux").hidden = true; $("cam-off").hidden = false; $("cam").hidden = true; streaming = false; }
+    } catch (e) {}
+  }, 300);
+}
+
+function resetToUsername(text, kind) {
+  clearInterval(timer);
+  loginId = null;
+  $("f-pwd").hidden = true; $("password").value = "";
+  $("f-user").hidden = false; $("username").value = ""; $("username").disabled = false; $("b-user").disabled = false;
+  $("cam").className = "cam";
+  if (text) message(text, kind); else message("");
+  $("username").focus();
+}
+
+function blockUsername(seconds, text) {
+  $("username").value = ""; $("username").disabled = true; $("b-user").disabled = true;
+  countdown(seconds, (s) => message(`${text} Nouvelle saisie possible dans ${mmss(s)}.`, "ko"),
+            () => resetToUsername("Vous pouvez ressaisir votre identifiant.", ""));
+}
+
+$("f-user").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const username = $("username").value.trim();
+  if (!username) return;
+  $("username").disabled = true; $("b-user").disabled = true;
+  $("cam").hidden = false; $("cam").className = "cam wait";
+  message("Regardez la caméra…", "warn");
+  let r, b;
+  try { r = await fetch("/api/identify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ username }) }); b = await r.json(); }
+  catch (err) { resetToUsername("Serveur injoignable.", "ko"); return; }
+
+  if (b.status === "face_ok") {
+    loginId = b.login_id;
+    $("cam").className = "cam ok";
+    $("f-user").hidden = true; $("f-pwd").hidden = false; $("password").focus();
+    countdown(b.expires_in, (s) => message(`Visage reconnu. Saisissez votre mot de passe (${s} s).`, "ok"),
+              () => resetToUsername("Délai dépassé, recommencez.", "warn"));
+  } else if (b.status === "face_ko") {
+    $("cam").className = "cam ko";
+    const lock = b.locked_for ? " Deuxième échec : identifiant bloqué 5 minutes." : "";
+    blockUsername(b.retry_after, `Visage non reconnu.${lock}`);
+  } else if (b.status === "locked") {
+    $("cam").hidden = true;
+    resetToUsername(`Identifiant bloqué. Réessayez dans ${mmss(b.retry_after)}.`, "ko");
+  } else if (b.status === "busy") {
+    $("cam").hidden = true;
+    resetToUsername(`Poste occupé. Réessayez dans ${b.retry_after} s.`, "warn");
+  } else {
+    $("cam").hidden = true;
+    resetToUsername("Caméra indisponible, prévenez un administrateur.", "ko");
+  }
+});
+
+$("f-pwd").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  clearInterval(timer);
+  $("b-pwd").disabled = true;
+  let b;
+  try { b = await (await fetch("/api/password", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ login_id: loginId, password: $("password").value }) })).json(); }
+  catch (err) { b = { status: "error" }; }
+  $("b-pwd").disabled = false;
+  if (b.status === "ok") {
+    $("f-pwd").hidden = true;
+    const go = () => { window.location.href = "/backoffice"; };
+    if (b.ready_in > 0) countdown(b.ready_in, (s) => message(`Accès autorisé. Back-office disponible dans ${s} s.`, "ok"), go);
+    else { message("Accès autorisé.", "ok"); setTimeout(go, 800); }
+  } else if (b.status === "pwd_ko") {
+    const lock = b.locked_for ? ` Deuxième échec : identifiant bloqué ${mmss(b.locked_for)}.` : "";
+    resetToUsername(`Mot de passe incorrect, recommencez l'identification.${lock}`, "ko");
+  } else {
+    resetToUsername("Session de connexion expirée, recommencez.", "warn");
+  }
+});
+
+watchCamera();
+</script>
+</body>
+</html>
