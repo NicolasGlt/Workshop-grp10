@@ -1,7 +1,7 @@
 #!/bin/sh
 # =====================================================================
 # Back-office (consigne additionnelle 1) : rôle et schéma dédiés.
-#   - backoffice : utilisé par l'app AUTH_FACIALE lancée sur le PC Hôte
+#   - backoffice : utilisé par l'app auth-faciale lancée sur le PC Hôte
 #     * propriétaire du schéma backoffice (comptes, habilitations, gabarits, journal)
 #     * LECTURE SEULE sur le métier (transactions, marchands, logs, commandes)
 # Le mot de passe vient du .env (BACKOFFICE_DB_PASSWORD).

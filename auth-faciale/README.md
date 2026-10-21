@@ -1,4 +1,4 @@
-# AUTH_FACIALE : authentification du back-office par visage et LED connectée
+# auth-faciale : authentification du back-office par visage et LED connectée
 
 Brique de sécurité du projet **PROJECT RESILIENCE-ALPHA** (workshop M2 EPSI 2026-27, groupe 10), en réponse à la **consigne additionnelle 1** : entre l'identifiant et le mot de passe, le back-office vérifie le visage de l'utilisateur avec une webcam USB branchée sur le PC Hôte, et un ESP8266 relié en Wi-Fi affiche chaque étape sur une LED bicolore.
 
@@ -47,7 +47,7 @@ Brique de sécurité du projet **PROJECT RESILIENCE-ALPHA** (workshop M2 EPSI 20
 ### Installation
 
 ```powershell
-cd AUTH_FACIALE
+cd auth-faciale
 py -3.12 -m venv .venv
 .venv\Scripts\python -m pip install -r requirements.txt
 copy .env.example .env      # renseigner BACKOFFICE_DB_PASSWORD (celui de poc-resilience\.env)
@@ -86,7 +86,7 @@ Le mot de passe est demandé au clavier, puis 5 captures du visage sont prises.
 
 3. Ouvrir http://127.0.0.1:8000.
 
-Procédure complète du jour de la démo et contrôles avant passage : [LANCEMENT.md](LANCEMENT.md).
+Procédure complète du jour de la démo et contrôles avant passage : [docs/lancement.md](docs/lancement.md).
 
 ## 3. Utilisation
 
@@ -151,12 +151,14 @@ Une seule application Python porte les pages web, la reconnaissance faciale, les
 ### Arborescence
 
 ```
-AUTH_FACIALE/
+auth-faciale/
 ├── README.md               ce document
-├── LANCEMENT.md            procédure du jour de la démo
-├── CONSIGNE.md             texte exact de la consigne et sa lecture
-├── PLAN.md                 plan, choix techniques, hypothèses, pièges de démo
-├── RECETTE.md              cas de test et résultats
+├── .env.example            modèle du .env (mot de passe de la base, webcam, LED)
+├── docs/
+│   ├── lancement.md        procédure du jour de la démo
+│   ├── consigne.md         texte exact de la consigne et sa lecture
+│   ├── plan.md             plan, choix techniques, hypothèses, pièges de démo
+│   └── recette.md          cas de test et résultats
 ├── requirements.txt        dépendances Python (versions figées)
 ├── .gitignore
 ├── models/                 modèles ONNX (YuNet, SFace)
@@ -171,6 +173,7 @@ AUTH_FACIALE/
 │   └── static/             login.html, backoffice.html, admin.html, monitor.html (outil de test)
 ├── scripts/
 │   ├── create_user.py      création de compte + enrôlement en ligne de commande
+│   ├── migrate_sqlite.py   reprise d'une ancienne base SQLite (comptes et visages)
 │   ├── test_camera.py      repérage de la webcam, temps d'ouverture
 │   └── test_face.py        enrôlement et score en direct (calibration)
 └── esp8266/                projet PlatformIO (CLion)
@@ -306,7 +309,7 @@ Dates en horodatage Unix (secondes).
 
 ## 10. Tests
 
-- [RECETTE.md](RECETTE.md) : les 6 cas de la consigne et 7 cas de sécurité, avec les résultats du 20/10/2026.
+- [docs/recette.md](docs/recette.md) : les 6 cas de la consigne et 7 cas de sécurité, avec les résultats du 20/10/2026.
 - `scripts/test_camera.py <dossier>` : sonde les index 0 à 3, enregistre une image par caméra et mesure l'ouverture ; `--show <index>` pour un aperçu.
 - `scripts/test_face.py <fichier.npy> [index] [étiquette]` : enrôle un visage, affiche le score en direct et un bilan par étiquette (« moi » / « autre ») pour régler le seuil.
 - Page `/monitor` : état du poste et image de la caméra en temps réel.
@@ -326,7 +329,7 @@ Dates en horodatage Unix (secondes).
 
 ## 12. Choix et écarts par rapport à la consigne
 
-Détail dans [PLAN.md](PLAN.md), sections 6 et 9.
+Détail dans [docs/plan.md](docs/plan.md), sections 6 et 9.
 
 - **Délai de 30 s pour le mot de passe** : ajouté pour que la LED ne clignote pas indéfiniment, alors que le texte dit « jusqu'à la saisie du mot de passe ». À valider en équipe.
 - **Échec du mot de passe compté** dans la règle « 1 réessai puis 5 minutes » : hypothèse.
@@ -338,10 +341,10 @@ Détail dans [PLAN.md](PLAN.md), sections 6 et 9.
 
 **Documents**
 
-- [LANCEMENT.md](LANCEMENT.md) : mise en route et contrôles avant la démo.
-- [CONSIGNE.md](CONSIGNE.md) : texte exact de la consigne et ce qu'il impose.
-- [PLAN.md](PLAN.md) : plan d'implémentation, choix techniques, pièges de démo, scénario « avant / après habilitation ».
-- [RECETTE.md](RECETTE.md) : cas de test et résultats.
+- [docs/lancement.md](docs/lancement.md) : mise en route et contrôles avant la démo.
+- [docs/consigne.md](docs/consigne.md) : texte exact de la consigne et ce qu'il impose.
+- [docs/plan.md](docs/plan.md) : plan d'implémentation, choix techniques, pièges de démo, scénario « avant / après habilitation ».
+- [docs/recette.md](docs/recette.md) : cas de test et résultats.
 
 **Modèles** (dépôt GitHub `opencv/opencv_zoo`, licences dans ce dépôt)
 

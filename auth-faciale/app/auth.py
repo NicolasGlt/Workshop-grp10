@@ -3,7 +3,7 @@
     idle ──identify──> verifying ──reconnu──> wait_password ──mot de passe──> idle
                                  └─non reconnu─> cooldown (30 s, caméra allumée) ──> idle
 
-Chaque phrase de la consigne correspond à une transition, voir PLAN.md section 4.
+Chaque phrase de la consigne correspond à une transition, voir docs/plan.md section 4.
 """
 import hashlib
 import hmac

@@ -8,7 +8,7 @@ ROOT = Path(__file__).resolve().parent.parent
 
 
 def _load_dotenv(path):
-    """Charge AUTH_FACIALE/.env (non versionné) sans écraser l'environnement existant."""
+    """Charge auth-faciale/.env (non versionné) sans écraser l'environnement existant."""
     if not path.exists():
         return
     for line in path.read_text(encoding="utf-8").splitlines():

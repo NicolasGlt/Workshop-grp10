@@ -1,6 +1,6 @@
 ﻿# Plan d'implémentation — consigne additionnelle 1 (identification par visage + LED)
 
-Document de travail. Texte de la consigne : [CONSIGNE.md](CONSIGNE.md). Cas à valider : [RECETTE.md](RECETTE.md). Vue d'ensemble : [README.md](README.md).
+Document de travail. Texte de la consigne : [consigne.md](consigne.md). Cas à valider : [recette.md](recette.md). Vue d'ensemble : [README.md](../README.md).
 
 Légende des sources : **[V]** vérifié en ligne le 2026-10-20 (liens en fin de document), **[T]** connaissance non vérifiée, à confirmer par le test de l'étape concernée.
 
@@ -63,7 +63,7 @@ Si rien ne s'allume, la LED est à anode commune : l'extrémité de la résistan
 
 ```
 implementation consigne additionnelle 1/
-├── README.md, LANCEMENT.md, CONSIGNE.md, PLAN.md, RECETTE.md
+├── README.md, docs/ (lancement, consigne, plan, recette)
 ├── requirements.txt
 ├── .env.example          # seuil, index caméra, IP ESP, jeton LED (le vrai .env n'est pas versionné)
 ├── app/
@@ -162,7 +162,7 @@ Les événements sont aussi écrits en JSON sur la sortie standard, pour que Lok
 
 1. **Un seul compteur d'échecs par identifiant** : un visage non reconnu et un mot de passe faux comptent tous les deux ; au 2e échec, blocage de 5 min, qui démarre au moment de l'échec. Un login réussi remet le compteur à zéro. Raison : le texte attache la règle à l'échec facial ; l'étendre au mot de passe empêche de tester des mots de passe sans limite une fois le visage passé.
 2. **Accès immédiat au back-office** dès le mot de passe validé, pendant que la LED reste verte 30 s. Réglage `BACKOFFICE_DELAY_S` (0 ou 30) pour basculer.
-3. **Caméra allumée** de la saisie de l'identifiant jusqu'à la fin de la phase (mot de passe saisi, ou fin des 30 s de rouge). Pour le cas « non reconnu », ce n'est plus une hypothèse : le texte exact dit que la LED reste rouge 30 s « avant que la caméra ne s'éteigne » (voir [CONSIGNE.md](CONSIGNE.md)).
+3. **Caméra allumée** de la saisie de l'identifiant jusqu'à la fin de la phase (mot de passe saisi, ou fin des 30 s de rouge). Pour le cas « non reconnu », ce n'est plus une hypothèse : le texte exact dit que la LED reste rouge 30 s « avant que la caméra ne s'éteigne » (voir [consigne.md](consigne.md)).
 4. **LED éteinte pendant le blocage de 5 min** (la consigne ne dit rien).
 5. **« bloqué 5 minutes, etc. »** : après le blocage, le cycle recommence normalement (2 nouvelles tentatives).
 
@@ -179,7 +179,7 @@ Chaque étape se termine par un test ; on ne passe à la suivante que si le test
 | 2 | Reconnaissance seule : `scripts/test_face.py` enrôle un visage puis affiche le score en direct | Rien de plus | Écart net entre la bonne personne et une autre ; premier seuil noté |
 | 3a | ESP8266 seul : point d'accès en 2,4 GHz, PlatformIO dans CLion, pilote USB, premier téléversement | La carte en USB, broches vides | La carte apparaît comme port COM, se connecte au point d'accès et répond à `curl` |
 | 3b | LED : montage sur la plaque, firmware des 5 modes | Carte débranchée pendant le montage, puis rebranchée | Les 5 modes se comportent exactement comme la consigne (10 clignotements comptés, 30 s chronométrées) |
-| 4 | Moteur d'authentification : `db`, `camera`, `face`, `led`, `auth`, routes API, `create_admin.py` | Webcam + carte | Les 6 cas de [RECETTE.md](RECETTE.md) passent avec `curl`, sans interface |
+| 4 | Moteur d'authentification : `db`, `camera`, `face`, `led`, `auth`, routes API, `create_admin.py` | Webcam + carte | Les 6 cas de [recette.md](recette.md) passent avec `curl`, sans interface |
 | 5 | Page de login | Webcam + carte | Enchaînement identifiant → caméra → mot de passe, comptes à rebours 30 s et 5 min |
 | 6 | Page des habilitations | Webcam + carte | Créer, enrôler, retirer l'accès (→ refusé) ; refusé à un non-admin |
 | 6b | CLion (exigé) | Carte | Projet `esp8266/` ouvert, compilé et téléversé depuis CLion |
@@ -195,7 +195,7 @@ Chaque étape se termine par un test ; on ne passe à la suivante que si le test
 
 ## 9. Périmètre recentré sur la consigne (2026-10-20)
 
-Revue phrase par phrase de [CONSIGNE.md](CONSIGNE.md) après les étapes 0 à 6.
+Revue phrase par phrase de [consigne.md](consigne.md) après les étapes 0 à 6.
 
 **Exigé et fait :** identifiant → caméra → mot de passe ; échec = identifiant vidé + caméra éteinte, 1 réessai puis 5 min ; caméra et IA sur le PC Hôte ; gestion de la reconnaissance et des habilitations dans le back-office (créer, enrôler, supprimer un visage, retirer l'accès) ; ESP8266 en Wi-Fi avec les 5 comportements de LED.
 

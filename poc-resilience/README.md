@@ -43,6 +43,8 @@ Réseaux : `edge` (waf, frontend, merchant) seul exposé ; `app` et `data` inter
 
 ## Démarrage
 
+Depuis la racine du dépôt : `just env`, `just up`, `just smoke` (voir le [README racine](../README.md#démarrage)). Équivalent à la main :
+
 ```bash
 cp .env.example .env
 # remplacer toutes les valeurs "change-me" (la clé marchand est posée en base au 1er démarrage)

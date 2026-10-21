@@ -43,7 +43,7 @@ Imposé par le texte :
 - **la caméra reste allumée pendant les 30 s de rouge fixe** et ne s'éteint qu'ensuite (« avant que la caméra ne s'éteigne ») ;
 - après un mot de passe faux : identifiant remis à vide et caméra éteinte.
 
-Ouvert (nos hypothèses, voir `PLAN.md` section 6) :
+Ouvert (nos hypothèses, voir `plan.md` section 6) :
 
 - si l'échec de mot de passe compte dans la règle « recommencer 1 fois puis bloqué 5 minutes » ;
 - si le back-office est accessible tout de suite ou seulement après les 30 s de vert (« vert fixe pendant 30 secondes puis s'éteint et la page du Back est disponible ») ;
@@ -52,5 +52,5 @@ Ouvert (nos hypothèses, voir `PLAN.md` section 6) :
 
 À noter :
 
-- le texte dit que le back-office est dans la solution conteneurisée (Docker). Notre partie caméra tourne hors Docker parce que Docker Desktop n'accède pas à une webcam USB : à justifier devant le jury (voir `PLAN.md` section 1) ;
+- le texte dit que le back-office est dans la solution conteneurisée (Docker). Notre partie caméra tourne hors Docker parce que Docker Desktop n'accède pas à une webcam USB : à justifier devant le jury (voir `plan.md` section 1) ;
 - « Pour prévoir l'avenir » et « dans un premier [temps] » : l'ESP8266 recevra probablement d'autres consignes ; le firmware doit rester simple à étendre.

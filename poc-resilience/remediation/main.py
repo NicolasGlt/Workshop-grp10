@@ -105,7 +105,7 @@ def ttl_janitor():
         now = time.time()
         expired = [ip for ip, exp in list(_blocks.items()) if exp <= now]
         for ip in expired:
-            ok, out = run_playbook("unblock_ip.yml", {"ip": ip, "blockfile": BLOCKFILE})
+            ok, out = run_playbook("unblock_ip.yaml", {"ip": ip, "blockfile": BLOCKFILE})
             with _lock:
                 _blocks.pop(ip, None)
                 STATE["blocks_active"] = len(_blocks)
@@ -165,7 +165,7 @@ def remediate(d: Decision, x_remediation_token: str = Header(default="")):
         if d.ip in SAFE_IPS:
             audit("block_refused_safe_ip", ip=d.ip); _count("block_ip", "refused")
             return {"status": "refused", "reason": "ip protégée (safe list)"}
-        ok, out = run_playbook("block_ip.yml", {"ip": d.ip, "blockfile": BLOCKFILE})
+        ok, out = run_playbook("block_ip.yaml", {"ip": d.ip, "blockfile": BLOCKFILE})
         if ok:
             with _lock:
                 _blocks[d.ip] = time.time() + BLOCK_TTL
@@ -175,7 +175,7 @@ def remediate(d: Decision, x_remediation_token: str = Header(default="")):
         return {"status": "applied" if ok else "error", "action": "block_ip", "ip": d.ip, "ttl": BLOCK_TTL, "detail": out}
 
     if d.action == "unblock_ip":
-        ok, out = run_playbook("unblock_ip.yml", {"ip": d.ip, "blockfile": BLOCKFILE})
+        ok, out = run_playbook("unblock_ip.yaml", {"ip": d.ip, "blockfile": BLOCKFILE})
         with _lock:
             _blocks.pop(d.ip, None); STATE["blocks_active"] = len(_blocks)
         _count("unblock_ip", "ok" if ok else "error")
@@ -189,7 +189,7 @@ def remediate(d: Decision, x_remediation_token: str = Header(default="")):
         if len(_restarts) >= MAX_RESTARTS:
             audit("restart_refused_loop_guard", service=svc, count=len(_restarts)); _count("restart_service", "refused")
             return {"status": "refused", "reason": f"anti-boucle : {MAX_RESTARTS} redémarrages déjà en {RESTART_WINDOW}s"}
-        ok, out = run_playbook("restart_service.yml", {"service": svc})
+        ok, out = run_playbook("restart_service.yaml", {"service": svc})
         if ok:
             _restarts.append(now)
         _count("restart_service", "ok" if ok else "error")
