@@ -1,0 +1,18 @@
+---
+# Débloque une IP : retire son entrée de la blocklist et recharge le frontend.
+- hosts: localhost
+  gather_facts: false
+  vars:
+    blockfile: /shared/blocklist.map
+  tasks:
+    - name: Retirer l'IP de la blocklist
+      ansible.builtin.lineinfile:
+        path: "{{ blockfile }}"
+        regexp: '^"{{ ip }}" '
+        state: absent
+
+    - name: Recharger le frontend
+      ansible.builtin.shell: >
+        docker exec $(docker ps -q -f label=com.docker.compose.service=frontend | head -n1)
+        nginx -s reload
+      changed_when: true

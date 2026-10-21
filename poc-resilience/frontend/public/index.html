@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PayPoc — passerelle de paiement</title>
+<style>
+:root{color-scheme:dark}
+body{margin:0;min-height:100vh;display:grid;place-items:center;background:#0f1218;color:#e8ebf2;
+  font-family:system-ui,Segoe UI,Roboto,sans-serif;text-align:center;padding:24px}
+.card{max-width:460px}
+h1{font-size:1.8rem;margin:0 0 6px}
+h1 .a{color:#38d39f}
+p{color:#9aa3b5;line-height:1.6}
+code{background:#1b2029;padding:2px 7px;border-radius:5px;color:#8fb3ff}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#38d39f;margin-right:7px}
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>Pay<span class="a">Poc</span></h1>
+  <p><span class="dot"></span>Passerelle de paiement opérationnelle.</p>
+  <p>Cette façade dessert l'API de paiement sous <code>/api</code>, derrière le WAF.
+     Les marchands l'appellent en serveur-à-serveur ; il n'y a pas d'interface client ici.</p>
+  <p style="font-size:.85rem">POC Resilience-Alpha</p>
+</div>
+</body>
+</html>

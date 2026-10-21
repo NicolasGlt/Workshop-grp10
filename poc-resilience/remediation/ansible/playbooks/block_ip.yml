@@ -1,0 +1,26 @@
+---
+# Bloque une IP au niveau du frontend : ajoute une entrée à la blocklist nginx
+# (map $http_x_forwarded_for) puis recharge nginx. Les requêtes de cette IP -> 403.
+- hosts: localhost
+  gather_facts: false
+  vars:
+    blockfile: /shared/blocklist.map
+  tasks:
+    - name: Ajouter l'IP à la blocklist nginx
+      ansible.builtin.lineinfile:
+        path: "{{ blockfile }}"
+        create: true
+        mode: "0644"
+        regexp: '^"{{ ip }}" '
+        line: '"{{ ip }}" 1;'
+
+    - name: Recharger le frontend pour appliquer la blocklist
+      ansible.builtin.shell: >
+        docker exec $(docker ps -q -f label=com.docker.compose.service=frontend | head -n1)
+        nginx -s reload
+      register: reload
+      changed_when: true
+
+    - name: Confirmation
+      ansible.builtin.debug:
+        msg: "IP {{ ip }} bloquée et frontend rechargé"

@@ -1,0 +1,547 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Brûlerie du Comptoir — torréfacteur</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#ffffff; --warm:#f6f3 ec; --warm:#f6f3ec; --card:#ffffff; --ink:#1b1a17; --muted:#6c6a63;
+    --line:#e7e2d7; --green:#1f6b4f; --green-700:#185540; --green-50:#eaf3ee; --gold:#b98a2e;
+    --radius:16px; --shadow:0 12px 34px rgba(27,26,23,.08); --maxw:1180px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:Inter,system-ui,sans-serif;color:var(--ink);background:var(--bg);-webkit-font-smoothing:antialiased;line-height:1.5}
+  a{color:inherit;text-decoration:none}
+  button{font-family:inherit;cursor:pointer;border:none;background:none}
+  .serif{font-family:Fraunces,Georgia,serif}
+  .wrap{max-width:var(--maxw);margin:0 auto;padding:0 24px}
+  .hidden{display:none!important}
+  img{max-width:100%}
+
+  /* ---------- Header ---------- */
+  header{position:sticky;top:0;z-index:40;background:rgba(255,255,255,.92);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+  .hbar{display:flex;align-items:center;gap:20px;height:72px}
+  .logo{font-family:Fraunces,serif;font-weight:700;font-size:22px;letter-spacing:-.01em;white-space:nowrap;cursor:pointer}
+  .logo b{color:var(--green)}
+  .search{flex:1;display:flex;align-items:center;gap:10px;background:var(--warm);border:1px solid var(--line);border-radius:999px;padding:11px 18px;color:var(--muted);min-width:0}
+  .search input{border:none;background:none;outline:none;width:100%;font-size:14px;color:var(--ink)}
+  .hactions{display:flex;align-items:center;gap:10px}
+  .hbtn{display:flex;align-items:center;gap:8px;border:1px solid var(--line);border-radius:999px;padding:10px 16px;font-size:14px;font-weight:500;white-space:nowrap;transition:border-color .15s,background .15s}
+  .hbtn:hover{border-color:var(--green);background:var(--green-50)}
+  .ic{width:18px;height:18px;flex:0 0 18px}
+  .search .ic{color:var(--muted)}
+  .cartcount{background:var(--green);color:#fff;border-radius:999px;font-size:12px;font-weight:700;min-width:20px;height:20px;display:inline-grid;place-items:center;padding:0 5px}
+  nav.cats{border-top:1px solid var(--line);overflow-x:auto}
+  nav.cats .inner{display:flex;gap:4px;height:52px;align-items:center}
+  nav.cats a{font-size:14px;font-weight:500;color:var(--muted);padding:8px 14px;border-radius:9px;white-space:nowrap}
+  nav.cats a:hover,nav.cats a.on{color:var(--ink);background:var(--warm)}
+
+  /* ---------- Hero ---------- */
+  .hero{display:grid;grid-template-columns:1.7fr 1fr;gap:18px;margin:26px 0 8px}
+  .hero .main{position:relative;border-radius:22px;overflow:hidden;background:linear-gradient(120deg,var(--green),#2f8a66);color:#fff;padding:48px 44px;min-height:300px;display:flex;flex-direction:column;justify-content:center}
+  .hero .main::after{content:"";position:absolute;right:-60px;bottom:-80px;width:340px;height:340px;border-radius:50%;background:radial-gradient(circle,rgba(255,255,255,.16),transparent 70%)}
+  .hero .kicker{text-transform:uppercase;letter-spacing:.14em;font-size:12px;opacity:.85;margin-bottom:14px}
+  .hero h1{font-family:Fraunces,serif;font-weight:600;font-size:40px;line-height:1.08;letter-spacing:-.02em;max-width:460px}
+  .hero p{margin-top:14px;max-width:430px;opacity:.92;font-size:15px}
+  .cta{align-self:flex-start;margin-top:26px;background:#fff;color:var(--green-700);font-weight:600;padding:13px 24px;border-radius:999px;font-size:15px;transition:transform .1s}
+  .cta:hover{transform:translateY(-1px)}
+  .side{background:var(--warm);border:1px solid var(--line);border-radius:22px;padding:30px;display:flex;flex-direction:column;justify-content:center}
+  .side h3{font-family:Fraunces,serif;font-size:22px;font-weight:600;line-height:1.15}
+  .side p{color:var(--muted);font-size:14px;margin:10px 0 20px}
+  .btn-dark{align-self:flex-start;background:var(--ink);color:#fff;font-weight:600;padding:12px 22px;border-radius:999px;font-size:14px}
+  .btn-dark:hover{background:#000}
+
+  /* ---------- Sections & grid ---------- */
+  section.block{margin:44px 0}
+  .shead{display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:20px;gap:16px}
+  .shead h2{font-family:Fraunces,serif;font-size:27px;font-weight:600;letter-spacing:-.01em}
+  .shead p{color:var(--muted);font-size:14px}
+  .grid{display:grid;grid-template-columns:repeat(4,1fr);gap:20px}
+  .pcard{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;display:flex;flex-direction:column;transition:box-shadow .18s,transform .18s}
+  .pcard:hover{box-shadow:var(--shadow);transform:translateY(-3px)}
+  .thumb{height:170px;display:grid;place-items:center;position:relative}
+  .tag{position:absolute;top:12px;left:12px;background:#fff;border:1px solid var(--line);border-radius:999px;font-size:11px;font-weight:600;padding:4px 10px;color:var(--muted)}
+  .tag.out{background:var(--ink);color:#fff;border-color:var(--ink)}
+  .pbody{padding:16px 16px 18px;display:flex;flex-direction:column;gap:6px;flex:1}
+  .porigin{font-size:12px;color:var(--green);font-weight:600;text-transform:uppercase;letter-spacing:.06em}
+  .pname{font-family:Fraunces,serif;font-size:18px;font-weight:600}
+  .pnotes{font-size:13px;color:var(--muted);flex:1}
+  .prow{display:flex;align-items:center;justify-content:space-between;margin-top:10px;gap:10px}
+  .price{font-weight:700;font-size:17px}
+  .price small{font-weight:500;color:var(--muted);font-size:12px}
+  .add{background:var(--green);color:#fff;font-weight:600;font-size:13px;padding:10px 15px;border-radius:10px;transition:background .15s}
+  .add:hover{background:var(--green-700)}
+  .add:disabled{background:var(--line);color:var(--muted);cursor:default}
+  .wsel{display:flex;gap:6px;margin-top:4px}
+  .wsel button{border:1px solid var(--line);border-radius:8px;padding:5px 10px;font-size:12px;font-weight:600;color:var(--muted)}
+  .wsel button.on{border-color:var(--green);color:var(--green);background:var(--green-50)}
+
+  /* coffee-bag / machine illustrations */
+  .ill{width:92px;height:118px}
+
+  /* ---------- Drawer (panier) & modals ---------- */
+  .overlay{position:fixed;inset:0;background:rgba(27,26,23,.4);z-index:50;opacity:0;pointer-events:none;transition:opacity .2s}
+  .overlay.show{opacity:1;pointer-events:auto}
+  .drawer{position:fixed;top:0;right:0;height:100dvh;width:420px;max-width:92vw;background:#fff;z-index:60;transform:translateX(100%);transition:transform .25s;display:flex;flex-direction:column;box-shadow:var(--shadow)}
+  .drawer.show{transform:none}
+  .dhead{display:flex;align-items:center;justify-content:space-between;padding:20px 22px;border-bottom:1px solid var(--line)}
+  .dhead h3{font-family:Fraunces,serif;font-size:20px;font-weight:600}
+  .x{font-size:22px;color:var(--muted);line-height:1;padding:4px 8px;border-radius:8px}
+  .x:hover{background:var(--warm);color:var(--ink)}
+  .dbody{flex:1;overflow:auto;padding:14px 22px}
+  .citem{display:flex;gap:12px;align-items:center;padding:12px 0;border-bottom:1px solid var(--line)}
+  .citem .mini{width:46px;height:56px;flex:0 0 46px;display:grid;place-items:center;background:var(--warm);border-radius:9px}
+  .citem .ci-mid{flex:1;min-width:0}
+  .citem .ci-nm{font-weight:600;font-size:14px}
+  .citem .ci-meta{font-size:12px;color:var(--muted)}
+  .qty{display:flex;align-items:center;gap:8px;margin-top:5px}
+  .qty button{width:24px;height:24px;border:1px solid var(--line);border-radius:7px;font-weight:700;color:var(--muted)}
+  .qty span{font-size:13px;font-weight:600;min-width:18px;text-align:center}
+  .ci-price{font-weight:700;font-size:14px;white-space:nowrap}
+  .ci-rm{font-size:11px;color:var(--muted);text-decoration:underline;margin-top:4px}
+  .dfoot{padding:20px 22px;border-top:1px solid var(--line)}
+  .totrow{display:flex;justify-content:space-between;font-size:15px;margin-bottom:4px}
+  .totrow.big{font-weight:700;font-size:19px;font-family:Fraunces,serif}
+  .pay{width:100%;margin-top:16px;background:var(--green);color:#fff;font-weight:600;font-size:15px;padding:15px;border-radius:12px}
+  .pay:hover{background:var(--green-700)}
+  .pay:disabled{background:var(--line);color:var(--muted)}
+  .empty{color:var(--muted);text-align:center;padding:50px 0;font-size:14px}
+
+  /* modal (auth / checkout / account) */
+  .modal{position:fixed;inset:0;z-index:70;display:none;align-items:flex-start;justify-content:center;padding:40px 16px;overflow:auto}
+  .modal.show{display:flex}
+  .mcard{background:#fff;border-radius:20px;width:100%;max-width:520px;box-shadow:var(--shadow);animation:pop .2s}
+  .mcard.wide{max-width:720px}
+  @keyframes pop{from{transform:translateY(10px);opacity:.6}to{transform:none;opacity:1}}
+  .mhead{display:flex;align-items:center;justify-content:space-between;padding:22px 26px;border-bottom:1px solid var(--line)}
+  .mhead h3{font-family:Fraunces,serif;font-size:21px;font-weight:600}
+  .mbody{padding:24px 26px}
+  label{display:block;font-size:13px;color:var(--muted);font-weight:500;margin:14px 0 6px}
+  .f2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  input,select{width:100%;border:1px solid var(--line);border-radius:11px;padding:13px 14px;font-size:14px;color:var(--ink);background:#fff;transition:border-color .15s,box-shadow .15s}
+  input:focus,select:focus{outline:none;border-color:var(--green);box-shadow:0 0 0 3px var(--green-50)}
+  .btn-green{width:100%;margin-top:20px;background:var(--green);color:#fff;font-weight:600;font-size:15px;padding:14px;border-radius:12px}
+  .btn-green:hover{background:var(--green-700)}
+  .btn-green:disabled{background:var(--line);color:var(--muted)}
+  .switch{margin-top:16px;font-size:14px;color:var(--muted);text-align:center}
+  .switch a{color:var(--green);font-weight:600;cursor:pointer}
+  .msg{font-size:13.5px;margin-top:12px;min-height:18px}
+  .msg.err{color:#c0392b}.msg.ok{color:var(--green)}
+  .check{display:flex;align-items:center;gap:9px;margin-top:16px;font-size:14px;color:var(--ink);cursor:pointer}
+  .check input{width:auto}
+  fieldset{border:1px solid var(--line);border-radius:14px;padding:16px 18px 20px;margin-top:18px}
+  legend{font-size:12px;font-weight:600;color:var(--green);text-transform:uppercase;letter-spacing:.06em;padding:0 8px}
+  .hint{font-size:12px;color:var(--muted);margin-top:10px;line-height:1.5}
+  .hint code{background:var(--warm);padding:1px 6px;border-radius:5px}
+
+  /* account */
+  .acc-grid{display:grid;grid-template-columns:1fr;gap:22px}
+  .ocard{border:1px solid var(--line);border-radius:12px;padding:14px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px}
+  .ocard .o-ref{font-weight:600}
+  .ocard .o-meta{font-size:13px;color:var(--muted)}
+  .badge{font-size:11px;padding:3px 9px;border-radius:999px;font-weight:600}
+  .badge.PAID{background:var(--green-50);color:var(--green)}
+  .badge.DECLINED{background:#fdecea;color:#c0392b}
+  .minicard{display:inline-flex;flex-direction:column;gap:10px;background:linear-gradient(135deg,#243b33,#1f6b4f);color:#fff;border-radius:12px;padding:16px 18px;min-width:210px}
+  .minicard .mc-pan{font-family:ui-monospace,monospace;letter-spacing:.1em;font-size:15px}
+  .minicard .mc-foot{display:flex;justify-content:space-between;font-size:11px;opacity:.85}
+  .cardwrap{display:flex;gap:12px;flex-wrap:wrap}
+
+  footer{border-top:1px solid var(--line);margin-top:60px;padding:40px 0;color:var(--muted);font-size:13px;text-align:center}
+
+  .spinner{width:46px;height:46px;border-radius:50%;border:4px solid var(--line);border-top-color:var(--green);margin:0 auto;animation:spin 1s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--ink);color:#fff;padding:13px 22px;border-radius:12px;font-size:14px;font-weight:500;z-index:90;opacity:0;pointer-events:none;transition:all .25s}
+  .toast.show{opacity:1;transform:translateX(-50%)}
+
+  @media(max-width:900px){.grid{grid-template-columns:repeat(2,1fr)}.hero{grid-template-columns:1fr}.hero h1{font-size:32px}.search{display:none}}
+  @media(max-width:560px){.grid{grid-template-columns:1fr 1fr}.hbtn span{display:none}.f2{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap hbar">
+    <div class="logo" onclick="showShop()">Brûlerie <b>du Comptoir</b></div>
+    <div class="search"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg>
+      <input id="q" placeholder="Bonjour, une envie de café ?" oninput="renderCatalog()"></div>
+    <div class="hactions">
+      <button class="hbtn" id="accBtn" onclick="accountClick()">
+        <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg>
+        <span id="accLbl">Connectez-vous</span></button>
+      <button class="hbtn" onclick="openCart()">
+        <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6h15l-1.5 9h-12z"/><circle cx="9" cy="20" r="1.4"/><circle cx="18" cy="20" r="1.4"/><path d="M6 6L5 3H2"/></svg>
+        <span>Panier</span><span class="cartcount" id="cartCount">0</span></button>
+    </div>
+  </div>
+  <nav class="cats"><div class="wrap inner" id="catsNav"></div></nav>
+</header>
+
+<main id="shopView">
+  <div class="wrap">
+    <div class="hero">
+      <div class="main">
+        <div class="kicker">Torréfaction artisanale · à la commande</div>
+        <h1 class="serif">Chaque tasse porte le nom de son origine.</h1>
+        <p>Des cafés de spécialité torréfiés en petits lots, et les machines pour les sublimer. De la cerise à la tasse, en toute transparence.</p>
+        <button class="cta" onclick="document.getElementById('sec-cafe').scrollIntoView({behavior:'smooth'})">Découvrir nos cafés</button>
+      </div>
+      <div class="side">
+        <h3 class="serif">Votre compte Comptoir.</h3>
+        <p id="sideTxt">Créez un compte pour suivre vos commandes et enregistrer vos cartes en toute sécurité.</p>
+        <button class="btn-dark" id="sideBtn" onclick="accountClick()">Je crée mon compte</button>
+      </div>
+    </div>
+  </div>
+  <div class="wrap" id="catalog"></div>
+</main>
+
+<!-- Compte (vue) -->
+<main id="accountView" class="hidden">
+  <div class="wrap" style="padding:36px 24px 0">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;gap:12px">
+      <button class="hbtn" onclick="showShop()">← Retour à la boutique</button>
+      <button class="hbtn" onclick="logout()">Déconnexion</button>
+    </div>
+    <h2 class="serif" style="font-size:30px;font-weight:600" id="accHello">Mon compte</h2>
+    <div class="acc-grid" style="margin-top:26px">
+      <section><div class="shead"><h2 class="serif" style="font-size:22px">Mes commandes</h2></div>
+        <div id="accOrders"></div></section>
+      <section><div class="shead"><h2 class="serif" style="font-size:22px">Mes cartes enregistrées</h2></div>
+        <div class="cardwrap" id="accCards"></div></section>
+    </div>
+  </div>
+</main>
+
+<footer>Brûlerie du Comptoir · boutique de démonstration · paiement sécurisé via PayPoc — aucune donnée carte n'est conservée en clair.</footer>
+
+<!-- Overlay + Panier -->
+<div class="overlay" id="overlay" onclick="closeAll()"></div>
+<aside class="drawer" id="cart">
+  <div class="dhead"><h3 class="serif">Votre panier</h3><button class="x" onclick="closeAll()">×</button></div>
+  <div class="dbody" id="cartItems"></div>
+  <div class="dfoot" id="cartFoot"></div>
+</aside>
+
+<!-- Auth modal -->
+<div class="modal" id="authModal">
+  <div class="mcard">
+    <div class="mhead"><h3 class="serif" id="authTitle">Connexion</h3><button class="x" onclick="closeModal('authModal')">×</button></div>
+    <div class="mbody">
+      <div id="regFields" class="hidden">
+        <div class="f2"><div><label>Prénom</label><input id="r_prenom"></div><div><label>Nom</label><input id="r_nom"></div></div>
+      </div>
+      <label>Email</label><input id="a_email" type="email" placeholder="vous@exemple.fr">
+      <label>Mot de passe</label><input id="a_pass" type="password" placeholder="••••••••••">
+      <button class="btn-green" id="authSubmit" onclick="submitAuth()">Se connecter</button>
+      <div class="msg" id="authMsg"></div>
+      <div class="switch" id="authSwitch">Pas encore de compte ? <a onclick="toggleAuth()">Créer un compte</a></div>
+      <div class="hint">Comptes de démo : <code>alice@example.com</code> / <code>Alice_Test_2026!</code></div>
+    </div>
+  </div>
+</div>
+
+<!-- Checkout modal -->
+<div class="modal" id="coModal">
+  <div class="mcard wide">
+    <div class="mhead"><h3 class="serif">Paiement</h3><button class="x" onclick="closeModal('coModal')">×</button></div>
+    <div class="mbody">
+      <fieldset><legend>Livraison</legend>
+        <label>Nom complet</label><input id="f_name">
+        <label>Email</label><input id="f_email" type="email">
+        <label>Adresse</label><input id="f_addr">
+        <div class="f2"><div><label>Code postal</label><input id="f_zip"></div><div><label>Ville</label><input id="f_city"></div></div>
+      </fieldset>
+      <fieldset><legend>Carte bancaire</legend>
+        <label>Numéro de carte</label><input id="c_num" inputmode="numeric" placeholder="4242 4242 4242 4242">
+        <label>Titulaire</label><input id="c_holder" placeholder="PRÉNOM NOM">
+        <div class="f2">
+          <div><label>Expiration (MM/AA)</label><input id="c_exp" placeholder="10/30"></div>
+          <div><label>CVV</label><input id="c_cvv" inputmode="numeric" placeholder="123"></div>
+        </div>
+        <label class="check" id="saveCardWrap"><input type="checkbox" id="c_save" checked> Enregistrer cette carte sur mon compte</label>
+      </fieldset>
+      <div class="totrow big" style="margin-top:18px"><span>Total</span><span id="coTotal">—</span></div>
+      <button class="btn-green" id="coPay" onclick="pay()">Payer</button>
+      <div class="msg" id="coMsg"></div>
+      <div class="hint">Cartes de test : <code>4242 4242 4242 4242</code> (acceptée), <code>4000 0000 0000 0002</code> (refusée). Date future, CVV libre.</div>
+    </div>
+  </div>
+</div>
+
+<!-- Confirmation modal -->
+<div class="modal" id="okModal">
+  <div class="mcard">
+    <div class="mbody" style="text-align:center;padding:40px 30px">
+      <div style="width:64px;height:64px;border-radius:50%;background:var(--green-50);display:grid;place-items:center;margin:0 auto 18px">
+        <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#1f6b4f" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg></div>
+      <h3 class="serif" style="font-size:24px;font-weight:600">Commande confirmée</h3>
+      <p id="okTxt" style="color:var(--muted);margin-top:10px;font-size:14px"></p>
+      <button class="btn-green" style="max-width:220px;margin:22px auto 0" onclick="closeModal('okModal')">Continuer</button>
+    </div>
+  </div>
+</div>
+
+<!-- Attente validation banque (3DS) -->
+<div class="modal" id="waitModal">
+  <div class="mcard">
+    <div class="mbody" style="text-align:center;padding:38px 30px">
+      <div class="spinner"></div>
+      <h3 class="serif" style="font-size:23px;font-weight:600;margin-top:20px">Validation par votre banque</h3>
+      <p style="color:var(--muted);margin-top:10px;font-size:14px">Ouvrez votre application bancaire <b>NovaPay</b> et approuvez le paiement de <b id="waitAmt"></b>.</p>
+      <a class="btn-green" href="http://localhost:8083" target="_blank" style="display:inline-block;max-width:220px;margin:20px auto 0;text-align:center">Ouvrir NovaPay</a>
+      <div style="margin-top:12px"><button class="hbtn" onclick="cancelWait()">Annuler</button></div>
+      <div class="msg" id="waitMsg"></div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const $=id=>document.getElementById(id);
+const eur=n=>new Intl.NumberFormat("fr-FR",{style:"currency",currency:"EUR"}).format(Number(n||0));
+const TOKEN="comptoir_token", NAME="comptoir_name";
+let PRODUCTS=[], WEIGHTS={}, cart=[], token=localStorage.getItem(TOKEN)||null, userName=localStorage.getItem(NAME)||null;
+let authMode="login";
+
+const CATS=[["all","Tout"],["single-origin","Cafés d'origine"],["assemblage","Assemblages"],["decafeine","Décaféinés"],["machine","Machines"],["materiel","Matériel"]];
+let activeCat="all";
+
+/* ---- illustrations SVG ---- */
+function bag(roast){
+  const sh=["#d9b98a","#c89b63","#a9763f","#7c4a24","#4e2c16"][Math.max(0,Math.min(4,(roast||3)-1))];
+  return `<svg class="ill" viewBox="0 0 92 118"><rect x="14" y="20" width="64" height="90" rx="10" fill="${sh}"/><path d="M14 30h64" stroke="rgba(255,255,255,.35)"/><rect x="26" y="46" width="40" height="30" rx="4" fill="#fff" opacity=".9"/><path d="M30 20l8-8h16l8 8z" fill="${sh}" opacity=".8"/></svg>`;
+}
+function machineIll(){
+  return `<svg class="ill" viewBox="0 0 92 118"><rect x="18" y="14" width="56" height="90" rx="8" fill="#2f3b36"/><rect x="26" y="22" width="40" height="22" rx="4" fill="#9fb8ad"/><rect x="34" y="60" width="24" height="10" rx="3" fill="#c7a46a"/><rect x="30" y="92" width="32" height="8" rx="3" fill="#1b2420"/><circle cx="46" cy="52" r="3" fill="#c7a46a"/></svg>`;
+}
+function boxIll(){return `<svg class="ill" viewBox="0 0 92 118"><rect x="18" y="34" width="56" height="54" rx="6" fill="#cbb59a"/><path d="M18 50h56M46 34v54" stroke="rgba(255,255,255,.4)"/></svg>`;}
+function illFor(p){return p.category==="machine"?machineIll():(p.category==="materiel"?boxIll():bag(p.roast));}
+function tileBg(p){return p.category==="machine"?"#eef2f0":(p.category==="materiel"?"#f3efe8":"#f6f1e8");}
+
+/* ---- catalogue ---- */
+async function load(){
+  const r=await fetch("/api/products"); const d=await r.json();
+  PRODUCTS=d.products; WEIGHTS=d.weights;
+  $("catsNav").innerHTML=CATS.map(c=>`<a onclick="setCat('${c[0]}')" class="${c[0]===activeCat?'on':''}" data-c="${c[0]}">${c[1]}</a>`).join("");
+  renderCatalog(); refreshAuthUI();
+}
+function setCat(c){activeCat=c;document.querySelectorAll('nav.cats a').forEach(a=>a.classList.toggle('on',a.dataset.c===c));renderCatalog();}
+
+function renderCatalog(){
+  const q=($("q").value||"").toLowerCase().trim();
+  const groups=[["sec-cafe","Nos cafés",p=>["single-origin","assemblage","decafeine"].includes(p.category)],
+                ["sec-mac","Machines à café",p=>p.category==="machine"],
+                ["sec-mat","Matériel",p=>p.category==="materiel"]];
+  let html="";
+  for(const [id,title,f] of groups){
+    let list=PRODUCTS.filter(f);
+    if(activeCat!=="all") list=list.filter(p=>p.category===activeCat||(activeCat==="single-origin"&&p.category==="single-origin"));
+    if(activeCat!=="all" && !list.length) continue;
+    if(q) list=list.filter(p=>(p.name+" "+p.origin+" "+(p.notes||[]).join(" ")).toLowerCase().includes(q));
+    if(!list.length) continue;
+    html+=`<section class="block" id="${id}"><div class="shead"><h2 class="serif">${title}</h2></div><div class="grid">`+
+      list.map(card).join("")+`</div></section>`;
+  }
+  $("catalog").innerHTML=html||`<div class="empty">Aucun produit ne correspond à votre recherche.</div>`;
+}
+function card(p){
+  const wsel=(!p.no_weight)?`<div class="wsel" id="w-${p.id}">`+Object.keys(WEIGHTS).map((w,i)=>`<button class="${i===0?'on':''}" onclick="pickW('${p.id}','${w}',this)">${w}</button>`).join("")+`</div>`:"";
+  return `<div class="pcard">
+    <div class="thumb" style="background:${tileBg(p)}">${illFor(p)}${p.stock?"":'<span class="tag out">Épuisé</span>'}${p.category==='machine'&&p.stock?'<span class="tag">Machine</span>':''}</div>
+    <div class="pbody">
+      <div class="porigin">${p.origin}${p.region&&p.region!=="—"?" · "+p.region:""}</div>
+      <div class="pname serif">${p.name}</div>
+      <div class="pnotes">${(p.notes||[]).join(" · ")}</div>
+      ${wsel}
+      <div class="prow"><div class="price">${eur(p.price)} ${p.no_weight?"":"<small>/ 250g</small>"}</div>
+        <button class="add" ${p.stock?"":"disabled"} onclick="addToCart('${p.id}')">${p.stock?"Ajouter":"Épuisé"}</button></div>
+    </div></div>`;
+}
+const picked={};
+function pickW(id,w,btn){picked[id]=w;btn.parentElement.querySelectorAll('button').forEach(b=>b.classList.remove('on'));btn.classList.add('on');}
+
+/* ---- panier ---- */
+function addToCart(id){
+  const p=PRODUCTS.find(x=>x.id===id); if(!p||!p.stock) return;
+  const w=p.no_weight?"250g":(picked[id]||Object.keys(WEIGHTS)[0]);
+  const ex=cart.find(c=>c.id===id&&c.weight===w);
+  if(ex) ex.qty++; else cart.push({id,qty:1,weight:w});
+  updateCart(); toast(`${p.name} ajouté au panier`);
+}
+function lineTotal(c){const p=PRODUCTS.find(x=>x.id===c.id);const mult=p.no_weight?1:Number(WEIGHTS[c.weight]||1);return p.price*mult*c.qty;}
+function cartTotal(){return cart.reduce((s,c)=>s+lineTotal(c),0);}
+function updateCart(){
+  $("cartCount").textContent=cart.reduce((s,c)=>s+c.qty,0);
+  $("cartItems").innerHTML=cart.length?cart.map((c,i)=>{
+    const p=PRODUCTS.find(x=>x.id===c.id);
+    return `<div class="citem"><div class="mini">${illFor(p)&&illMini(p)}</div>
+      <div class="ci-mid"><div class="ci-nm">${p.name}</div><div class="ci-meta">${p.no_weight?"":c.weight+" · "}${eur(p.price)}${p.no_weight?"":" /250g"}</div>
+      <div class="qty"><button onclick="chg(${i},-1)">−</button><span>${c.qty}</span><button onclick="chg(${i},1)">+</button></div>
+      <div class="ci-rm" onclick="rm(${i})">Retirer</div></div>
+      <div class="ci-price">${eur(lineTotal(c))}</div></div>`;
+  }).join(""):`<div class="empty">Votre panier est vide.</div>`;
+  $("cartFoot").innerHTML=cart.length?`<div class="totrow big"><span>Total</span><span>${eur(cartTotal())}</span></div>
+    <div class="totrow"><span style="color:var(--muted);font-size:13px">Livraison calculée à l'étape suivante</span></div>
+    <button class="pay" onclick="openCheckout()">Passer la commande</button>`:"";
+}
+function illMini(p){return `<div style="transform:scale(.4);transform-origin:center">${illFor(p)}</div>`;}
+function chg(i,d){cart[i].qty=Math.max(1,cart[i].qty+d);updateCart();}
+function rm(i){cart.splice(i,1);updateCart();}
+
+/* ---- overlays ---- */
+function openCart(){$("overlay").classList.add("show");$("cart").classList.add("show");}
+function closeAll(){$("overlay").classList.remove("show");$("cart").classList.remove("show");}
+function openModal(id){$("overlay").classList.add("show");$(id).classList.add("show");}
+function closeModal(id){if(id==="authModal")pendingCheckout=false;$(id).classList.remove("show");if(!$("cart").classList.contains("show"))$("overlay").classList.remove("show");}
+
+/* ---- auth ---- */
+function accountClick(){ if(token){showAccount();} else {pendingCheckout=false;openAuth();} }
+function openAuth(){authMode=pendingCheckout?"login":authMode==="register"?"register":"login";applyAuthMode();$("authMsg").textContent="";
+  $("authTitle").textContent=pendingCheckout?"Connectez-vous pour payer":(authMode==="register"?"Créer un compte":"Connexion");
+  closeAll();openModal("authModal");}
+function toggleAuth(){authMode=authMode==="login"?"register":"login";applyAuthMode();}
+function applyAuthMode(){
+  const reg=authMode==="register";
+  $("regFields").classList.toggle("hidden",!reg);
+  $("authTitle").textContent=reg?"Créer un compte":"Connexion";
+  $("authSubmit").textContent=reg?"Créer mon compte":"Se connecter";
+  $("authSwitch").innerHTML=reg?'Déjà client ? <a onclick="toggleAuth()">Se connecter</a>':'Pas encore de compte ? <a onclick="toggleAuth()">Créer un compte</a>';
+}
+async function submitAuth(){
+  const btn=$("authSubmit");btn.disabled=true;$("authMsg").className="msg";$("authMsg").textContent="";
+  try{
+    const path=authMode==="register"?"/api/register":"/api/login";
+    const payload=authMode==="register"
+      ?{prenom:$("r_prenom").value.trim(),nom:$("r_nom").value.trim(),email:$("a_email").value.trim(),password:$("a_pass").value}
+      :{email:$("a_email").value.trim(),password:$("a_pass").value};
+    const r=await fetch(path,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
+    const d=await r.json();
+    if(!r.ok) throw new Error(d.detail||"Erreur");
+    token=d.token;userName=d.name;localStorage.setItem(TOKEN,token);localStorage.setItem(NAME,userName);
+    const resume=pendingCheckout;
+    refreshAuthUI();closeModal("authModal");toast(`Bienvenue, ${userName.split(" ")[0]} !`);
+    if(resume) openCheckout();
+  }catch(e){$("authMsg").className="msg err";$("authMsg").textContent=e.message;}
+  finally{btn.disabled=false;}
+}
+function logout(){token=null;userName=null;localStorage.removeItem(TOKEN);localStorage.removeItem(NAME);refreshAuthUI();showShop();toast("Déconnecté");}
+function refreshAuthUI(){
+  if(token){$("accLbl").textContent=userName?userName.split(" ")[0]:"Mon compte";
+    $("sideTxt").textContent="Retrouvez l'historique de vos commandes et vos cartes enregistrées.";
+    $("sideBtn").textContent="Accéder à mon compte";}
+  else{$("accLbl").textContent="Connectez-vous";
+    $("sideTxt").textContent="Créez un compte pour suivre vos commandes et enregistrer vos cartes en toute sécurité.";
+    $("sideBtn").textContent="Je crée mon compte";}
+}
+
+/* ---- compte (vue) ---- */
+async function showAccount(){
+  closeAll();
+  try{
+    const r=await fetch("/api/account",{headers:{Authorization:"Bearer "+token}});
+    if(r.status===401){logout();return openAuth();}
+    const d=await r.json();
+    $("accHello").textContent=`Bonjour ${d.profil.prenom}`;
+    $("accOrders").innerHTML=d.commandes.length?d.commandes.map(o=>`
+      <div class="ocard"><div><div class="o-ref">${o.reference}</div>
+        <div class="o-meta">${new Date(o.created_at).toLocaleDateString("fr-FR",{day:"2-digit",month:"long",year:"numeric"})}${o.ville?" · "+o.ville:""}</div></div>
+        <div style="text-align:right"><div style="font-weight:700">${eur(o.montant)}</div>
+        <span class="badge ${o.statut}">${o.statut==="PAID"?"Payée":"Refusée"}</span></div></div>`).join("")
+      :`<div class="empty">Aucune commande pour le moment.</div>`;
+    $("accCards").innerHTML=d.cartes.length?d.cartes.map(c=>`
+      <div class="minicard"><div style="font-weight:700;font-family:Fraunces,serif">Comptoir</div>
+        <div class="mc-pan">•••• ${c.card_last4}</div>
+        <div class="mc-foot"><span>${c.actif?"Active":"Inactive"}</span><span>${new Date(c.creation_carte).toLocaleDateString("fr-FR",{month:"2-digit",year:"2-digit"})}</span></div></div>`).join("")
+      :`<div class="empty">Aucune carte enregistrée. Cochez « Enregistrer cette carte » lors d'un paiement.</div>`;
+    $("shopView").classList.add("hidden");$("accountView").classList.remove("hidden");window.scrollTo(0,0);
+    // bouton logout dans le header
+    $("accLbl").textContent=userName?userName.split(" ")[0]:"Mon compte";
+  }catch(e){toast("Impossible de charger le compte");}
+}
+function showShop(){$("accountView").classList.add("hidden");$("shopView").classList.remove("hidden");}
+
+/* ---- checkout ---- */
+let pendingCheckout=false;
+function openCheckout(){
+  if(!cart.length) return;
+  if(!token){ pendingCheckout=true; openAuth(); return; }   // connexion obligatoire
+  closeAll();
+  $("coTotal").textContent=eur(cartTotal());
+  $("saveCardWrap").style.display="flex";
+  prefillCheckout();
+  $("coMsg").textContent="";
+  openModal("coModal");
+}
+async function prefillCheckout(){
+  if(!$("f_name").value && userName) $("f_name").value=userName;
+  try{
+    const r=await fetch("/api/account",{headers:{Authorization:"Bearer "+token}});
+    if(r.ok){const d=await r.json();
+      if(!$("f_name").value) $("f_name").value=`${d.profil.prenom} ${d.profil.nom}`;
+      if(!$("f_email").value) $("f_email").value=d.profil.email;}
+  }catch(e){}
+}
+async function pay(){
+  const btn=$("coPay");btn.disabled=true;btn.textContent="Traitement…";$("coMsg").className="msg";$("coMsg").textContent="";
+  const exp=($("c_exp").value||"").split("/");
+  const payload={
+    items:cart.map(c=>({id:c.id,qty:c.qty,weight:c.weight})),
+    customer:{name:$("f_name").value,email:$("f_email").value,address:$("f_addr").value,zip:$("f_zip").value,city:$("f_city").value},
+    card:{number:$("c_num").value,exp_month:parseInt(exp[0]||0,10),exp_year:parseInt(exp[1]||0,10),cvv:$("c_cvv").value,holder:$("c_holder").value},
+    save_card: token ? $("c_save").checked : false
+  };
+  try{
+    const h={"Content-Type":"application/json"}; if(token) h.Authorization="Bearer "+token;
+    const r=await fetch("/api/checkout",{method:"POST",headers:h,body:JSON.stringify(payload)});
+    const d=await r.json();
+    if(r.status===422){throw new Error("Carte invalide : "+(d.reason||"vérifiez les champs"));}
+    if(!r.ok){throw new Error(d.message||"Paiement indisponible");}
+    if(d.status==="pending_auth"){ startWait(d.payment_id, d.total); return; }   // validation bancaire 3DS
+    if(d.status==="declined"){throw new Error("Paiement refusé ("+(d.reason||"banque")+").");}
+    // succès
+    cart=[];updateCart();closeModal("coModal");
+    $("okTxt").innerHTML=`Référence <b>${d.order_ref}</b> · ${eur(d.total)}<br>Autorisation banque : ${d.bank_reference||"—"}`
+      +(d.card_saved?"<br>Votre carte a été enregistrée sur votre compte.":"");
+    openModal("okModal");
+  }catch(e){$("coMsg").className="msg err";$("coMsg").textContent=e.message;}
+  finally{btn.disabled=false;btn.textContent="Payer";}
+}
+
+/* ---- validation bancaire (3DS) : attente + polling ---- */
+let waitTimer=null, waitTries=0;
+function startWait(id,total){
+  cart=[];updateCart();closeModal("coModal");
+  $("waitAmt").textContent=eur(total);
+  $("waitMsg").textContent=""; waitTries=0;
+  openModal("waitModal");
+  pollOrder(id,total);
+}
+function pollOrder(id,total){
+  waitTimer=setTimeout(async()=>{
+    waitTries++;
+    try{
+      const d=await fetch("/api/order/"+id).then(r=>r.json());
+      if(d.statut==="COMPLETED"){ closeModal("waitModal");
+        $("okTxt").innerHTML=`Paiement validé par votre banque · ${eur(total)}<br>Référence : ${d.reference_banque||"—"}`;
+        openModal("okModal"); return; }
+      if(d.statut==="REJECTED"){ closeModal("waitModal"); toast("Paiement refusé par votre banque"); return; }
+    }catch(e){}
+    if(waitTries>75){ $("waitMsg").className="msg err"; $("waitMsg").textContent="Délai dépassé — vérifiez dans NovaPay."; return; }
+    pollOrder(id,total);
+  },2000);
+}
+function cancelWait(){ clearTimeout(waitTimer); closeModal("waitModal"); }
+
+/* ---- toast + header logout ---- */
+let tT;
+function toast(m){const t=$("toast");t.textContent=m;t.classList.add("show");clearTimeout(tT);tT=setTimeout(()=>t.classList.remove("show"),2200);}
+load();updateCart();
+</script>
+</body>
+</html>
