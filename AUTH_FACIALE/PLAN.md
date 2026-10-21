@@ -1,6 +1,6 @@
 ﻿# Plan d'implémentation — consigne additionnelle 1 (identification par visage + LED)
 
-Document de travail. Texte de la consigne : [CONSIGNE.md](CONSIGNE.md). Avancement : [progress.md](progress.md). Cas à valider : [RECETTE.md](RECETTE.md).
+Document de travail. Texte de la consigne : [CONSIGNE.md](CONSIGNE.md). Cas à valider : [RECETTE.md](RECETTE.md). Vue d'ensemble : [README.md](README.md).
 
 Légende des sources : **[V]** vérifié en ligne le 2026-10-20 (liens en fin de document), **[T]** connaissance non vérifiée, à confirmer par le test de l'étape concernée.
 
@@ -63,7 +63,7 @@ Si rien ne s'allume, la LED est à anode commune : l'extrémité de la résistan
 
 ```
 implementation consigne additionnelle 1/
-├── CONSIGNE.md, PLAN.md, progress.md, RECETTE.md
+├── README.md, LANCEMENT.md, CONSIGNE.md, PLAN.md, RECETTE.md
 ├── requirements.txt
 ├── .env.example          # seuil, index caméra, IP ESP, jeton LED (le vrai .env n'est pas versionné)
 ├── app/

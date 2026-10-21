@@ -29,7 +29,7 @@ Réponse attendue : `{"mode":"off","rssi":...}`. Rien ne répond : le point d'ac
 Dans un terminal PowerShell (pas besoin d'être administrateur) :
 
 ```powershell
-cd "C:\Users\jerem\!projets\epsi\workshop-2026\implementation consigne additionnelle 1"
+cd "<chemin du dépôt>\AUTH_FACIALE"
 .venv\Scripts\python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
 ```
 
