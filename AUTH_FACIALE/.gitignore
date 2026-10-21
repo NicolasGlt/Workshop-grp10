@@ -1,0 +1,25 @@
+# --- Secrets : jamais versionnés (modèle versionné : esp8266/include/secrets.h.example)
+esp8266/include/secrets.h
+*credentials*
+
+# --- Données locales : empreintes de mots de passe et vecteurs de visages (biométrie)
+*.db
+*.npy
+
+# --- Journal de travail personnel (contient un audit du PC Hôte)
+progress.md
+
+# --- Environnements, caches, compilation
+.venv/
+__pycache__/
+*.pyc
+esp8266/.pio/
+cmake-build-*/
+esp8266/CMakeListsPrivate.txt
+
+# --- IDE et système
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+*.log

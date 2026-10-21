@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Back-office</title>
+<style>
+  :root { --bg: #f4f5f9; --card: #fff; --text: #1d1b33; --muted: #6b6a80; --border: #d9dae6; --accent: #3b3f8f; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #14141c; --card: #1e1e2a; --text: #ececf3; --muted: #a2a1b6; --border: #34344a; --accent: #8f94ff; }
+  }
+  body { margin: 0; background: var(--bg); color: var(--text); font-family: system-ui, sans-serif; }
+  main { max-width: 720px; margin: 40px auto; padding: 0 16px; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 24px; }
+  h1 { font-size: 22px; font-weight: 600; margin: 0 0 8px; }
+  p { color: var(--muted); }
+  a, button { display: inline-block; margin: 8px 8px 0 0; padding: 10px 16px; border-radius: 8px; font-size: 15px;
+              border: 1px solid var(--border); background: var(--card); color: var(--text); text-decoration: none; cursor: pointer; }
+  a.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<main>
+  <div class="card">
+    <h1>Back-office</h1>
+    <p id="who">…</p>
+    <p>Page provisoire : le vrai back-office du SI de paiement viendra s'y brancher.</p>
+    <a id="admin" class="primary" href="/admin" hidden>Gestion des habilitations</a>
+    <button id="logout" type="button">Se déconnecter</button>
+  </div>
+</main>
+<script>
+(async () => {
+  const r = await fetch("/api/me", { cache: "no-store" });
+  if (!r.ok) { window.location.href = "/"; return; }
+  const me = await r.json();
+  document.getElementById("who").textContent = `Connecté : ${me.username} (rôle ${me.role})`;
+  document.getElementById("admin").hidden = me.role !== "admin";
+})();
+document.getElementById("logout").addEventListener("click", async () => {
+  await fetch("/api/logout", { method: "POST" });
+  window.location.href = "/";
+});
+</script>
+</body>
+</html>
