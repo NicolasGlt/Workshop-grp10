@@ -2,6 +2,7 @@
 
     idle ──identify──> verifying ──reconnu──> wait_password ──mot de passe──> idle
                                  └─non reconnu─> cooldown (30 s, caméra allumée) ──> idle
+    idle ──enrôlement (app/enroll.py)──> enrolling ──fin, échec ou annulation──> idle
 
 Chaque phrase de la consigne correspond à une transition, voir docs/plan.md section 4.
 """
@@ -156,22 +157,3 @@ def password(login_id, password_value):
     led.send("red_blink10")
     db.event(username, "password_ko", detail="bloque" if locked_for else None)
     return {"status": "pwd_ko", "locked_for": locked_for}, 200, None
-
-
-def enroll(user_id, created_by=None):
-    """Enrôlement depuis le back-office : réservé quand le poste est libre."""
-    with kiosk.lock:
-        if kiosk.state != "idle":
-            return {"status": "busy"}, 409
-        kiosk.state = "enrolling"
-    try:
-        camera.on()
-        embeddings = face.enroll(camera)
-    finally:
-        camera.off()
-        with kiosk.lock:
-            kiosk._to_idle()
-    if len(embeddings) < config.ENROLL_SAMPLES:
-        return {"status": "failed", "captured": len(embeddings)}, 422
-    db.replace_templates(user_id, embeddings, created_by)
-    return {"status": "ok", "captured": len(embeddings)}, 200

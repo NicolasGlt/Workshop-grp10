@@ -29,7 +29,8 @@
   .ok { color: var(--ok); } .ko { color: var(--ko); } .muted { color: var(--muted); }
   form.inline { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
   #msg { min-height: 20px; margin-top: 10px; font-size: 14px; }
-  .cam { width: 320px; max-width: 100%; aspect-ratio: 4 / 3; background: #000; border-radius: 8px; margin-top: 10px; }
+  #enroll { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); }
+  #enroll h3 { font-size: 15px; font-weight: 600; margin: 0; }
   [hidden] { display: none !important; }
 </style>
 </head>
@@ -47,7 +48,12 @@
       <tbody id="users"></tbody>
     </table>
     <div id="msg" role="status"></div>
-    <img id="cam" class="cam" alt="Caméra pendant l'enrôlement" hidden>
+    <div id="enroll" hidden>
+      <h3 id="enroll-title"></h3>
+      <p class="muted">La personne seule face à la webcam USB, à 50 cm environ : 5 angles, chacun pris dès qu'il est tenu.</p>
+      <div id="ge"></div>
+      <button id="enroll-close" hidden>Fermer</button>
+    </div>
   </div>
 
   <div class="card">
@@ -58,7 +64,7 @@
       <select name="role"><option value="lecteur">lecteur</option><option value="operateur">operateur</option><option value="admin">admin</option></select>
       <button class="primary" type="submit">Créer</button>
     </form>
-    <p class="muted">Après la création, cliquez sur « Enrôler » face à la caméra pour enregistrer le visage.</p>
+    <p class="muted">Après la création, cliquez sur « Enrôler » : la personne suit à l'écran la consigne d'angle (face, gauche, droite, haut, bas).</p>
   </div>
 
   <div class="card">
@@ -66,6 +72,7 @@
     <table><thead><tr><th>Heure</th><th>Identifiant</th><th>Événement</th><th>Score</th><th>Détail</th></tr></thead><tbody id="events"></tbody></table>
   </div>
 </main>
+<script src="/static/enroll.js"></script>
 <script>
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -138,20 +145,30 @@ $("users").addEventListener("click", async (e) => {
     return;
   }
   try {
-    if (act === "enroll") {
-      msg(`Enrôlement de ${name} : une seule personne face à la caméra, quelques secondes…`);
-      const done = api("POST", `/api/admin/users/${id}/face`);
-      setTimeout(() => { $("cam").src = "/camera/stream?t=" + Date.now(); $("cam").hidden = false; }, 600);
-      const r = await done;
-      msg(`Visage de ${name} enrôlé (${r.captured} captures).`, "ok");
-    }
+    if (act === "enroll") { enroll(id, name); return; }
     if (act === "unface") { await api("DELETE", `/api/admin/users/${id}/face`); msg(`Visage de ${name} supprimé.`, "ok"); }
     if (act === "unlock") { await api("POST", `/api/admin/users/${id}/unlock`); msg(`${name} débloqué.`, "ok"); }
     if (act === "delete") { await api("DELETE", `/api/admin/users/${id}`); msg(`Utilisateur ${name} supprimé.`, "ok"); }
   } catch (err) { msg(err.message, "ko"); }
-  $("cam").hidden = true; $("cam").removeAttribute("src");
   load();
 });
+
+// Enrôlement guidé (enroll.js) : aperçu avant capture, consigne par angle, recommencer possible.
+function enroll(id, name) {
+  msg("");
+  $("enroll").hidden = false; $("enroll-close").hidden = true;
+  $("enroll-title").textContent = `Enrôlement du visage de ${name}`;
+  $("enroll").scrollIntoView({ behavior: "smooth", block: "nearest" });
+  guidedEnroll($("ge"), {
+    start: () => fetch(`/api/admin/users/${id}/face`, { method: "POST" }),
+    onEnd: (s) => {
+      $("enroll-close").hidden = false;
+      if (s.status === "done") msg(`Visage de ${name} enrôlé (${s.captured} angles).`, "ok");
+      load().catch(() => {});
+    },
+  });
+}
+$("enroll-close").addEventListener("click", () => { $("enroll").hidden = true; $("ge").innerHTML = ""; });
 
 $("create").addEventListener("submit", async (e) => {
   e.preventDefault();
