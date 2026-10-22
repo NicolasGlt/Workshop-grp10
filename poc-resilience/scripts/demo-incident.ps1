@@ -23,22 +23,23 @@ function Pay {
 Write-Host "`n=== 1. État AVANT incident ===" -ForegroundColor Cyan
 # Le détecteur doit avoir appris la normale (~2 min après son démarrage), sinon la démo ne prouve rien.
 function Trained { ((Invoke-RestMethod "http://localhost:9090/api/v1/query?query=ml_detector_trained").data.result[0].value[1]) -eq "1" }
+function Remediations { [int]((Invoke-RestMethod "http://localhost:9090/api/v1/query?query=ml_detector_remediations_total").data.result[0].value[1]) }
 for ($i = 0; $i -lt 30 -and -not (Trained); $i++) { Write-Host "  détecteur en apprentissage..."; Start-Sleep -Seconds 10 }
 if (-not (Trained)) { Write-Host "ÉCHEC : détecteur non entraîné, démo annulée" -ForegroundColor Red; exit 1 }
 Write-Host "Détecteur entraîné : oui"
 Write-Host ("Paiement de contrôle : " + (Pay)) -ForegroundColor Green
+$avant = Remediations   # compteur cumulé : la démo peut être rejouée sans redémarrer la stack
 
 Write-Host "`n=== 2. Déclenchement de l'incident (flood HTTP) ===" -ForegroundColor Yellow
 Write-Host "Ouvre Grafana -> 07 - Résilience pour regarder en direct."
 docker run --rm --network resilience-alpha_edge williamyeh/hey -z 60s -c 90 -T application/json `
   -H "User-Agent: Mozilla/5.0" -H "Accept: application/json" `
-  http://waf:8080/api/ping | Select-String "Requests/sec|Status code"
+  http://waf:8080/api/ping | Select-String "Requests/sec|\[\d{3}\]\s+\d+ responses"
 
 Write-Host "`n=== 3. Reprise autonome en cours (détection -> remédiation) ===" -ForegroundColor Yellow
 Write-Host "Suivi : docker compose logs -f ml-detector remediation"
 Start-Sleep -Seconds 25
-Write-Host "Remédiations déclenchées :"
-(Invoke-WebRequest "http://localhost:9090/api/v1/query?query=ml_detector_remediations_total" -UseBasicParsing).Content
+Write-Host ("Remédiations déclenchées : " + ((Remediations) - $avant))
 
 Write-Host "`n=== 4. État APRÈS remédiation ===" -ForegroundColor Cyan
 Start-Sleep -Seconds 10
