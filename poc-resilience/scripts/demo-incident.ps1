@@ -1,4 +1,4 @@
-# =====================================================================
+﻿# =====================================================================
 # Démo de reprise autonome (PowerShell / Windows)
 #   1. service AVANT (paiement OK)
 #   2. incident (flood HTTP -> l'API sature)
