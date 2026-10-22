@@ -8,7 +8,11 @@ documentation du projet** (procédures, architecture, fiche du jour J). Construi
 ## Rôle et limites
 
 - Il **informe** : il cherche les passages pertinents du corpus et rédige une réponse en
-  français **avec ses sources** (fichier et titre). S'il ne trouve pas, il répond « Je ne sais pas ».
+  français **avec ses sources** (fichier et titre). **S'il ne trouve rien dans le corpus**, il
+  donne une piste de secours **clairement marquée « hors documentation, à vérifier »** (jamais
+  présentée comme procédure validée) et **journalise la question** dans `index/lacunes.jsonl`
+  pour qu'un membre l'ajoute au corpus après validation. Pas d'auto-insertion de contenu non
+  vérifié : la base de confiance ne s'enrichit que par un humain.
 - Il **n'agit pas sur le SI** : aucun outil, aucun accès à Docker, à la base ni aux journaux
   (mesure **M11** de l'EBIOS). Ce n'est **ni** l'automate de remédiation Ansible, **ni** un compte
   à privilèges : il ne fait que lire des fichiers texte et parler à Ollama en local.
