@@ -14,6 +14,14 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+# Console Windows (cp1252) : forcer UTF-8, sinon l'affichage des sources plante sur
+# des caractères comme « → » (UnicodeEncodeError).
+for _flux in (sys.stdout, sys.stderr):
+    try:
+        _flux.reconfigure(encoding="utf-8")
+    except (AttributeError, ValueError):
+        pass
+
 from app import config, rag          # noqa: E402
 
 OK, KO = "[ OK ]", "[MANQUE]"
