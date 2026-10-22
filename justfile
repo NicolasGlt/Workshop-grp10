@@ -134,6 +134,30 @@ demo-prep: up
     Write-Host "Detecteur entraine : pret pour just demo" -ForegroundColor Green
     & "{{ just_executable() }}" --justfile "{{ justfile() }}" urls
 
+# ---------------------------------------------------------------- Red Team (attacker)
+# Exercice pédagogique, laboratoire fermé, SI FICTIF du groupe, point d'accès isolé
+# RESILIENCE-G10 (192.168.137.0/24). Détails et périmètre : attacker/README.md.
+
+# Vérifie AVANT l'attaque : réseau 192.168.137.0/24, cible joignable, image hey
+[unix]
+attack-check target="http://192.168.137.1":
+    ./attacker/preflight.sh {{ quote(target) }}
+
+# Vérifie AVANT l'attaque : réseau 192.168.137.0/24, cible joignable, image hey
+[windows]
+attack-check target="http://192.168.137.1":
+    & "$env:ProgramFiles\Git\bin\bash.exe" attacker/preflight.sh "{{ target }}"
+
+# Flood HTTP du point d'entrée (WAF) depuis le PC Attaquant, via Podman rootless
+[unix]
+attack target="http://192.168.137.1" duration="60s" concurrency="90":
+    podman run --rm docker.io/williamyeh/hey -z {{ duration }} -c {{ concurrency }} -T application/json -H "User-Agent: Mozilla/5.0" -H "Accept: application/json" "{{ target }}/api/ping"
+
+# Flood HTTP du point d'entrée (WAF) depuis le PC Attaquant, via Podman rootless
+[windows]
+attack target="http://192.168.137.1" duration="60s" concurrency="90":
+    podman run --rm docker.io/williamyeh/hey -z {{ duration }} -c {{ concurrency }} -T application/json -H "User-Agent: Mozilla/5.0" -H "Accept: application/json" "{{ target }}/api/ping"
+
 # ---------------------------------------------------------------- back-office (auth-faciale)
 
 # Installe l'environnement Python du back-office

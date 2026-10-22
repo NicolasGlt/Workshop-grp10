@@ -1,0 +1,6 @@
+# Aucun secret, aucune sortie d'exécution ne doit être versionné.
+*.log
+*.out
+*.env
+.env
+results/
