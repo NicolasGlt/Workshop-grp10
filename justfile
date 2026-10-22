@@ -264,6 +264,47 @@ assistant-check:
 assistant-check:
     .venv\Scripts\python scripts\check.py
 
+# ---------------------------------------------------------------- orchestrateur d'incident (incident-orchestrator)
+
+# Installe l'environnement Python de l'orchestrateur (hôte, hors conteneur)
+[unix]
+[working-directory('incident-orchestrator')]
+orchestrator-install:
+    if command -v uv >/dev/null; then uv venv -q .venv --python 3.12 && uv pip install -q -p .venv -r requirements.txt; else python3 -m venv .venv && .venv/bin/python -m pip install -r requirements.txt; fi
+
+# Installe l'environnement Python de l'orchestrateur (hôte, hors conteneur)
+[windows]
+[working-directory('incident-orchestrator')]
+orchestrator-install:
+    py -3.12 -m venv .venv
+    .venv\Scripts\python -m pip install -r requirements.txt
+
+# Lance l'orchestrateur + la timeline live sur http://127.0.0.1:8002 (stack + assistant requis)
+[unix]
+[working-directory('incident-orchestrator')]
+orchestrator:
+    .venv/bin/python -m uvicorn app.main:app --host 127.0.0.1 --port 8002
+
+# Lance l'orchestrateur + la timeline live sur http://127.0.0.1:8002 (stack + assistant requis)
+[windows]
+[working-directory('incident-orchestrator')]
+orchestrator:
+    .venv\Scripts\python -m uvicorn app.main:app --host 127.0.0.1 --port 8002
+
+# Chaos : arrête proprement un service pour déclencher la reprise décidée par le LLM
+[unix]
+[working-directory('poc-resilience')]
+chaos service="bank":
+    {{ compose }} stop {{ service }}
+    @echo "Service {{ service }} arrêté — l'orchestrateur détecte et pilote la reprise (timeline :8002)"
+
+# Chaos : arrête proprement un service pour déclencher la reprise décidée par le LLM
+[windows]
+[working-directory('poc-resilience')]
+chaos service="bank":
+    {{ compose }} stop {{ service }}
+    Write-Host "Service {{ service }} arrete - l'orchestrateur detecte et pilote la reprise (timeline :8002)"
+
 # ---------------------------------------------------------------- aide
 
 # Adresses des interfaces
@@ -273,6 +314,8 @@ urls:
     @echo "API Comptes       http://localhost:8081/docs"
     @echo "Facade PayPoc     http://localhost (derrière le WAF)"
     @echo "Back-office       http://127.0.0.1:8000"
+    @echo "Assistant RAG     http://127.0.0.1:8001"
+    @echo "Timeline incident http://127.0.0.1:8002"
     @echo "Grafana           http://localhost:3000"
     @echo "Prometheus        http://localhost:9090"
     @echo "pgAdmin           http://localhost:5050"
