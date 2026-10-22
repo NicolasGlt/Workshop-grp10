@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Assistant des opérateurs — RESILIENCE-ALPHA</title>
+<style>
+  :root { --bg: #f4f5f9; --card: #fff; --text: #1d1b33; --muted: #6b6a80; --border: #d9dae6;
+          --accent: #3b3f8f; --ok: #1f8a4c; --ko: #c62828; --warn: #b26a00; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #14141c; --card: #1e1e2a; --text: #ececf3; --muted: #a2a1b6; --border: #34344a;
+            --accent: #8f94ff; --ok: #4cc27c; --ko: #ff6b6b; --warn: #f0b04a; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; min-height: 100vh; background: var(--bg); color: var(--text);
+         font-family: system-ui, sans-serif; padding: 24px 16px; }
+  main { width: 100%; max-width: 760px; margin: 0 auto; }
+  h1 { font-size: 22px; font-weight: 600; margin: 0 0 4px; }
+  .sub { color: var(--muted); font-size: 14px; margin: 0 0 20px; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+          padding: 20px; margin-bottom: 18px; }
+  label { display: block; font-size: 14px; margin: 0 0 6px; }
+  textarea { width: 100%; min-height: 72px; padding: 10px 12px; font-size: 16px; resize: vertical;
+             border: 1px solid var(--border); border-radius: 8px; background: var(--bg);
+             color: var(--text); font-family: inherit; }
+  button { margin-top: 12px; padding: 11px 18px; font-size: 16px; border: 0; border-radius: 8px;
+           background: var(--accent); color: #fff; cursor: pointer; }
+  button:disabled { opacity: .5; cursor: default; }
+  .answer { white-space: pre-wrap; font-size: 16px; line-height: 1.5; }
+  .sources { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--border); }
+  .sources h2 { font-size: 14px; color: var(--muted); margin: 0 0 8px; font-weight: 600; }
+  .sources ul { margin: 0; padding-left: 18px; font-size: 14px; color: var(--muted); }
+  .sources code { color: var(--accent); }
+  .msg { font-size: 15px; } .msg.ko { color: var(--ko); } .msg.warn { color: var(--warn); }
+  .note { color: var(--muted); font-size: 13px; margin-top: 18px; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Assistant des opérateurs</h1>
+  <p class="sub">Répond à partir de la documentation du projet RESILIENCE-ALPHA, avec ses sources.
+     Il n'agit pas sur le SI : il ne fait qu'informer.</p>
+
+  <form id="f" class="card" autocomplete="off">
+    <label for="q">Votre question</label>
+    <textarea id="q" placeholder="Ex. Que faire si la démo ne détecte pas le flood ?" required autofocus></textarea>
+    <button id="b" type="submit">Demander</button>
+  </form>
+
+  <section id="out" class="card" hidden>
+    <div id="answer" class="answer"></div>
+    <div id="sources" class="sources" hidden>
+      <h2>Sources</h2>
+      <ul id="src-list"></ul>
+    </div>
+  </section>
+
+  <p class="note">Aucune action sur le système d'information (mesure M11 EBIOS). En cas de doute,
+     se référer aux fiches citées en source.</p>
+</main>
+<script>
+const $ = (id) => document.getElementById(id);
+
+function message(text, kind) {
+  $("out").hidden = false;
+  $("sources").hidden = true;
+  $("answer").className = "answer msg " + (kind || "");
+  $("answer").textContent = text;
+}
+
+$("f").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const question = $("q").value.trim();
+  if (!question) return;
+  $("b").disabled = true;
+  message("Recherche dans la documentation…", "warn");
+  let r, b;
+  try {
+    r = await fetch("/api/ask", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ question }),
+    });
+    b = await r.json();
+  } catch (err) {
+    $("b").disabled = false;
+    message("Serveur injoignable.", "ko");
+    return;
+  }
+  $("b").disabled = false;
+  if (!r.ok) {
+    message(b.detail || "Erreur.", "ko");
+    return;
+  }
+  $("out").hidden = false;
+  $("answer").className = "answer";
+  $("answer").textContent = b.answer;
+  const list = $("src-list");
+  list.innerHTML = "";
+  if (b.sources && b.sources.length) {
+    for (const s of b.sources) {
+      const li = document.createElement("li");
+      const code = document.createElement("code");
+      code.textContent = s.source;
+      li.appendChild(code);
+      if (s.title) li.appendChild(document.createTextNode(" — " + s.title));
+      list.appendChild(li);
+    }
+    $("sources").hidden = false;
+  } else {
+    $("sources").hidden = true;
+  }
+});
+</script>
+</body>
+</html>

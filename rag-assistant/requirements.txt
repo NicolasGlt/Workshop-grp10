@@ -1,0 +1,8 @@
+# Assistant RAG — Python 3.12 pur, aucune dépendance native fragile (pas de Chroma ni FAISS).
+# L'index vit en mémoire (InMemoryVectorStore de langchain-core) et se sauve en JSON.
+langchain-core==1.6.13
+langchain-ollama==1.1.0
+langchain-text-splitters==1.1.3
+fastapi==0.159.1
+uvicorn==0.54.0
+numpy==2.5.4          # requis par InMemoryVectorStore (similarité cosinus) ; roues précompilées, pas de build natif

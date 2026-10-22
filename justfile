@@ -197,6 +197,61 @@ user name role="lecteur":
 user name role="lecteur":
     .venv\Scripts\python scripts\create_user.py {{ name }} --role {{ role }}
 
+# ---------------------------------------------------------------- assistant RAG (rag-assistant)
+
+# Installe l'environnement Python de l'assistant (hors conteneur, sur le PC Hôte)
+[unix]
+[working-directory('rag-assistant')]
+assistant-install:
+    if command -v uv >/dev/null; then uv venv -q .venv --python 3.12 && uv pip install -q -p .venv -r requirements.txt; else python3 -m venv .venv && .venv/bin/python -m pip install -r requirements.txt; fi
+    test -f .env || cp .env.example .env
+    @echo "Rappel : renseigner RAG_MODEL dans rag-assistant/.env (nom exact de 'ollama list')"
+
+# Installe l'environnement Python de l'assistant (hors conteneur, sur le PC Hôte)
+[windows]
+[working-directory('rag-assistant')]
+assistant-install:
+    py -3.12 -m venv .venv
+    .venv\Scripts\python -m pip install -r requirements.txt
+    if (-not (Test-Path .env)) { Copy-Item .env.example .env }
+    Write-Host "Rappel : renseigner RAG_MODEL dans rag-assistant/.env (nom exact de ollama list)"
+
+# (Re)construit l'index vectoriel depuis le corpus de l'équipe
+[unix]
+[working-directory('rag-assistant')]
+assistant-index:
+    .venv/bin/python scripts/index_corpus.py
+
+# (Re)construit l'index vectoriel depuis le corpus de l'équipe
+[windows]
+[working-directory('rag-assistant')]
+assistant-index:
+    .venv\Scripts\python scripts\index_corpus.py
+
+# Lance l'assistant sur http://127.0.0.1:8001
+[unix]
+[working-directory('rag-assistant')]
+assistant:
+    .venv/bin/python -m uvicorn app.main:app --host 127.0.0.1 --port 8001
+
+# Lance l'assistant sur http://127.0.0.1:8001
+[windows]
+[working-directory('rag-assistant')]
+assistant:
+    .venv\Scripts\python -m uvicorn app.main:app --host 127.0.0.1 --port 8001
+
+# Diagnostic : Ollama joignable, modèles présents, index construit, puis une question test
+[unix]
+[working-directory('rag-assistant')]
+assistant-check:
+    .venv/bin/python scripts/check.py
+
+# Diagnostic : Ollama joignable, modèles présents, index construit, puis une question test
+[windows]
+[working-directory('rag-assistant')]
+assistant-check:
+    .venv\Scripts\python scripts\check.py
+
 # ---------------------------------------------------------------- aide
 
 # Adresses des interfaces
