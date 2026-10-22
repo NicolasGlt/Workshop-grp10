@@ -12,13 +12,15 @@ MERCHANT="${MERCHANT:-http://localhost:8082}"
 PROM="${PROM:-http://localhost:9090}"
 GRAFANA="${GRAFANA:-http://localhost:3000}"
 API_KEY="${MERCHANT_API_KEY:-$(sed -n 's/^MERCHANT_API_KEY=//p' "$(dirname "$0")/../.env" 2>/dev/null)}"
+# Sous Windows, python3 peut n'être que le raccourci du Microsoft Store, qui ne lance rien
+PY=python3; "$PY" -c '' 2>/dev/null || PY=python
 
 pass=0; fail=0
 ok(){ echo "  [OK]   $1"; pass=$((pass+1)); }
 ko(){ echo "  [FAIL] $1"; fail=$((fail+1)); }
 check(){ [[ "$3" == "$2" ]] && ok "$1 ($3)" || ko "$1 (attendu $2, obtenu $3)"; }
 code(){ curl -s -o /dev/null -w "%{http_code}" "$@"; }
-field(){ python3 -c "import sys,json;print(json.load(sys.stdin).get('$1',''))"; }
+field(){ "$PY" -c"import sys,json;print(json.load(sys.stdin).get('$1',''))"; }
 
 charge(){ # $1=numéro carte  -> body JSON de /charge
   cat <<JSON
@@ -53,7 +55,7 @@ check "WAF actif (SQLi -> 403)"  403 "$(code "$BASE/api/ping?id=1%27%20OR%20%271
 echo "== Observabilité"
 targets=$(curl -s "$PROM/api/v1/targets?state=active")
 for job in prometheus payment-api bank merchant ml-detector remediation blackbox-http postgres; do
-  health=$(printf '%s' "$targets" | python3 -c "
+  health=$(printf '%s' "$targets" | "$PY" -c "
 import sys,json
 d=json.load(sys.stdin)
 h=[t['health'] for t in d['data']['activeTargets'] if t['labels'].get('job')=='$job']
