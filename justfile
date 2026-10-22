@@ -123,7 +123,7 @@ demo-prep: up
     for ($i = 0; $i -lt 60; $i++) {
       $etat = ({{ compose }} ps 2>$null) -join "`n"
       $up = ([regex]::Matches($etat, " Up ")).Count
-      if ($up -ge $attendus -and $etat -notmatch "starting|unhealthy|Restarting|Created") { $ok = $true; break }
+      if ($up -ge $attendus -and $etat -cnotmatch "starting|unhealthy|Restarting|Created") { $ok = $true; break }
       Write-Host "  conteneurs : $up/$attendus demarres, attente des healthchecks..."; Start-Sleep -Seconds 5
     }
     if (-not $ok) { {{ compose }} ps; Write-Host "ECHEC : conteneurs pas tous sains apres 5 min" -ForegroundColor Red; exit 1 }
@@ -133,6 +133,30 @@ demo-prep: up
     if (-not (Entraine)) { Write-Host "ECHEC : ml_detector_trained != 1 apres 6 min, voir just logs ml-detector" -ForegroundColor Red; exit 1 }
     Write-Host "Detecteur entraine : pret pour just demo" -ForegroundColor Green
     & "{{ just_executable() }}" --justfile "{{ justfile() }}" urls
+
+# ---------------------------------------------------------------- Red Team (attacker)
+# Exercice pédagogique, laboratoire fermé, SI FICTIF du groupe, point d'accès isolé
+# RESILIENCE-G10 (192.168.137.0/24). Détails et périmètre : attacker/README.md.
+
+# Vérifie AVANT l'attaque : réseau 192.168.137.0/24, cible joignable, image hey
+[unix]
+attack-check target="http://192.168.137.1":
+    ./attacker/preflight.sh {{ quote(target) }}
+
+# Vérifie AVANT l'attaque : réseau 192.168.137.0/24, cible joignable, image hey
+[windows]
+attack-check target="http://192.168.137.1":
+    & "$env:ProgramFiles\Git\bin\bash.exe" attacker/preflight.sh "{{ target }}"
+
+# Flood HTTP du point d'entrée (WAF) depuis le PC Attaquant, via Podman rootless
+[unix]
+attack target="http://192.168.137.1" duration="60s" concurrency="90":
+    podman run --rm docker.io/williamyeh/hey -z {{ duration }} -c {{ concurrency }} -T application/json -H "User-Agent: Mozilla/5.0" -H "Accept: application/json" "{{ target }}/api/ping"
+
+# Flood HTTP du point d'entrée (WAF) depuis le PC Attaquant, via Podman rootless
+[windows]
+attack target="http://192.168.137.1" duration="60s" concurrency="90":
+    podman run --rm docker.io/williamyeh/hey -z {{ duration }} -c {{ concurrency }} -T application/json -H "User-Agent: Mozilla/5.0" -H "Accept: application/json" "{{ target }}/api/ping"
 
 # ---------------------------------------------------------------- back-office (auth-faciale)
 
