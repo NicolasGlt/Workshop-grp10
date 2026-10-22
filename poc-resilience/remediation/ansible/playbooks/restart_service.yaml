@@ -1,11 +1,14 @@
 ---
 # Redémarre un service applicatif (par son label compose) pour le rétablir.
+# `docker ps -a` (et pas `docker ps`) : inclut les conteneurs ARRÊTÉS, sinon un
+# service tombé (ex. `docker compose stop bank`) n'est jamais relancé — `docker ps`
+# seul ne liste que les conteneurs en marche. `docker restart` gère les deux états.
 - hosts: localhost
   gather_facts: false
   tasks:
     - name: Redémarrer le conteneur du service {{ service }}
       ansible.builtin.shell: >
-        docker restart $(docker ps -q -f label=com.docker.compose.service={{ service }} | head -n1)
+        docker restart $(docker ps -a -q -f label=com.docker.compose.service={{ service }} | head -n1)
       register: restart
       changed_when: true
 
