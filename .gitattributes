@@ -1,0 +1,9 @@
+# Fins de ligne LF dans le dépôt et dans l'arbre de travail, quel que soit le core.autocrlf
+# de chacun : scripts, configs et Dockerfiles sont lus par des conteneurs Linux, où un CRLF
+# casse les shebangs (/bin/sh^M: bad interpreter) et les scripts d'init de la base.
+* text=auto eol=lf
+
+# Scripts Windows : CRLF attendu
+*.ps1 text eol=crlf
+*.bat text eol=crlf
+*.cmd text eol=crlf

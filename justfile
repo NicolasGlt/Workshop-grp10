@@ -123,7 +123,7 @@ demo-prep: up
     for ($i = 0; $i -lt 60; $i++) {
       $etat = ({{ compose }} ps 2>$null) -join "`n"
       $up = ([regex]::Matches($etat, " Up ")).Count
-      if ($up -ge $attendus -and $etat -notmatch "starting|unhealthy|Restarting|Created") { $ok = $true; break }
+      if ($up -ge $attendus -and $etat -cnotmatch "starting|unhealthy|Restarting|Created") { $ok = $true; break }
       Write-Host "  conteneurs : $up/$attendus demarres, attente des healthchecks..."; Start-Sleep -Seconds 5
     }
     if (-not $ok) { {{ compose }} ps; Write-Host "ECHEC : conteneurs pas tous sains apres 5 min" -ForegroundColor Red; exit 1 }
