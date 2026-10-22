@@ -43,15 +43,15 @@ Réseaux : `edge` (waf, frontend, merchant) seul exposé ; `app` et `data` inter
 
 ## Démarrage
 
-Depuis la racine du dépôt : `just env`, `just up`, `just smoke` (voir le [README racine](../README.md#démarrage)). Équivalent à la main :
+Sous Windows, suivre le guide pas à pas [GUIDE-WINDOWS.md](../GUIDE-WINDOWS.md). Depuis la racine du dépôt :
 
-```bash
-cp .env.example .env
-# remplacer toutes les valeurs "change-me" (la clé marchand est posée en base au 1er démarrage)
-docker compose up -d --build        # ajouter --scale cadvisor=0 sous Docker Desktop
-docker compose ps
-./scripts/smoke-test.sh
+```powershell
+just env         # crée poc-resilience/.env et génère tous les secrets
+just demo-prep   # docker compose up -d --build, attend les 20 conteneurs sains et le détecteur entraîné
+just smoke       # paiement, WAF, observabilité
 ```
+
+La clé marchand du `.env` est posée en base au premier démarrage. Les recettes `just` ne sont que des raccourcis vers `docker compose` lancé dans ce dossier : `just ps` équivaut à `docker compose ps`.
 
 | Interface | URL | Accès |
 |---|---|---|
@@ -76,7 +76,8 @@ Date d'expiration future, CVV à 3 chiffres (libre).
 
 | Numéro | Résultat |
 |---|---|
-| `4242 4242 4242 4242` | approuvé |
+| `5555 5555 5555 4444` | approuvé directement |
+| `4242 4242 4242 4242` | carte d'Alice, enrôlée : paiement en attente, à valider dans NovaPay (3DS), puis approuvé |
 | `4000 0000 0000 0002` | refusé — fonds insuffisants |
 | `4000 0000 0000 9995` | refusé — fonds insuffisants |
 | `4100 0000 0000 0019` | refusé — carte bloquée |
@@ -215,12 +216,10 @@ Prometheus ─► ml-detector ─────► remediation ─────► 
 
 ### Démo de reprise (Clip Chrono)
 
-```powershell
-./scripts/demo-incident.ps1      # Windows
-```
+Depuis la racine du dépôt, après `just demo-prep` :
 
-```bash
-./scripts/demo-incident.sh       # Linux, Docker ou Podman (ENGINE=podman)
+```powershell
+just demo        # Windows : scripts/demo-incident.ps1 ; Linux : scripts/demo-incident.sh
 ```
 
 Le script attend que le détecteur soit entraîné (~2 min après le démarrage) avant d'attaquer.
@@ -228,20 +227,23 @@ Le script attend que le détecteur soit entraîné (~2 min après le démarrage)
 Le script : montre une transaction OK (avant), déclenche le flood, laisse la boucle détecter et remédier, puis rejoue une transaction (après). À regarder en direct dans Grafana → **07 · Résilience**. Suivi des décisions :
 
 ```powershell
-docker compose logs -f ml-detector remediation
+just logs ml-detector remediation
 ```
 
 Vérifier l'état de la boucle :
 
 ```powershell
 # modèle entraîné ? (1 = actif)
-curl http://localhost:9090/api/v1/query?query=ml_detector_trained
+curl.exe "http://localhost:9090/api/v1/query?query=ml_detector_trained"
 # IP actuellement bloquées (mode block_ip)
 docker compose exec remediation sh -c "wget -qO- http://localhost:8000/status"
 ```
 
+### Pannes de service et assistant IA
+
+Le `ml-detector` ne sait relancer que `api`. Une panne d'un autre service (`bank`, `merchant`...) est prise en charge par l'orchestrateur d'incident, sur le PC Hôte : il détecte le conteneur dégradé, demande à l'assistant RAG quel service relancer, valide la réponse contre une liste fermée et appelle la remédiation (publiée sur `127.0.0.1:8099` seulement). Voir [incident-orchestrator/README.md](../incident-orchestrator/README.md) et [rag-assistant/README.md](../rag-assistant/README.md). Démo : `just chaos`.
+
 ## Prochaines étapes
 
-1. Assistant RAG local (Ollama + LangChain) pour les opérateurs.
-2. Gouvernance : EBIOS RM, PCA/PRA, mapping NIS2/DORA.
-3. Copie des sauvegardes hors de l'hôte (support hors ligne ou immuable).
+1. Copie des sauvegardes hors de l'hôte (support hors ligne ou immuable).
+2. Proxy de socket Docker pour la remédiation, au lieu du socket monté en écriture.

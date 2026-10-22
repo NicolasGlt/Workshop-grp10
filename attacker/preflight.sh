@@ -28,6 +28,8 @@ echo "[1/3] Réseau 192.168.137.0/24 (point d'accès RESILIENCE-G10)"
 ips=""
 if command -v ip >/dev/null 2>&1; then
   ips="$(ip -4 -o addr show 2>/dev/null | awk '{print $4}' | cut -d/ -f1)"
+elif command -v ipconfig >/dev/null 2>&1; then
+  ips="$(ipconfig 2>/dev/null | grep -oE '([0-9]{1,3}\.){3}[0-9]{1,3}')"   # Git Bash sous Windows
 elif command -v hostname >/dev/null 2>&1; then
   ips="$(hostname -I 2>/dev/null)"
 fi

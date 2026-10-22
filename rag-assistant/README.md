@@ -40,9 +40,9 @@ Depuis la **racine du dépôt**, avec Ollama déjà installé et lancé sur le P
 # 1. Environnement Python (crée .venv et copie .env.example -> .env)
 just assistant-install
 
-# 2. Renseigner le modèle : ouvrir rag-assistant\.env et coller dans RAG_MODEL
-#    le nom EXACT affiché par :
+# 2. Renseigner le modèle : coller dans RAG_MODEL le nom EXACT affiché par ollama list
 ollama list
+notepad rag-assistant\.env
 #    (par ex. le Qwen 9B présent). Récupérer aussi le modèle d'embeddings si besoin :
 ollama pull nomic-embed-text
 
@@ -56,7 +56,7 @@ just assistant-check
 just assistant
 ```
 
-Sous Linux, les mêmes recettes `just` fonctionnent (variantes `[unix]`).
+Sous Linux, les mêmes recettes `just` fonctionnent (variantes `[unix]`). Poste vierge, installation d'Ollama comprise : [GUIDE-WINDOWS.md](../GUIDE-WINDOWS.md#10-panne-de-service-et-assistant-ia).
 
 ## Corpus
 

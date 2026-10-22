@@ -47,11 +47,12 @@ Brique de sécurité du projet **PROJECT RESILIENCE-ALPHA** (workshop M2 EPSI 20
 
 ### Installation
 
+Depuis la racine du dépôt (pas à pas complet : [GUIDE-WINDOWS.md](../GUIDE-WINDOWS.md#11-back-office-à-reconnaissance-faciale)) :
+
 ```powershell
-cd auth-faciale
-py -3.12 -m venv .venv
-.venv\Scripts\python -m pip install -r requirements.txt
-copy .env.example .env      # renseigner BACKOFFICE_DB_PASSWORD (celui de poc-resilience\.env)
+just env                 # crée auth-faciale\.env, BACKOFFICE_DB_PASSWORD identique à poc-resilience\.env
+just backoffice-install  # .venv et dépendances
+notepad auth-faciale\.env   # CAM_INDEX=0 si le PC n'a qu'une webcam
 ```
 
 La base est celle du SI : la stack `poc-resilience` doit tourner (PostgreSQL publié sur `127.0.0.1:5432` seulement). Une ancienne base SQLite se reprend sans réenrôler : `.venv\Scripts\python scripts\migrate_sqlite.py auth.db`.

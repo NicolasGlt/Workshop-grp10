@@ -2,6 +2,8 @@
 
 Exigence §3.4 du sujet (« gestion des secrets avec HashiCorp Vault ou SOPS »). L'équipe a retenu **SOPS + age** : pas de serveur à faire tourner, le fichier chiffré vit dans Git, et chaque valeur est chiffrée séparément (les noms de variables restent lisibles dans une revue de code, les valeurs non).
 
+> Installation neuve ou examen du projet : ce mécanisme n'est pas nécessaire. `just env` génère des secrets locaux ([GUIDE-WINDOWS.md](../../GUIDE-WINDOWS.md#4-générer-la-configuration)). Les fichiers chiffrés ne servent qu'aux membres de l'équipe.
+
 Deux services ont des secrets chiffrés (`poc-resilience` et `auth-faciale`), avec la convention `<service>/.env` ⟷ `<service>/secrets/<service>.enc.env`. La liste des services est dans le `justfile` (`secrets_services`).
 
 | Fichier | Versionné | Rôle |
