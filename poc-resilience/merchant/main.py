@@ -26,7 +26,7 @@ from psycopg_pool import ConnectionPool
 from pydantic import BaseModel, Field
 
 PAYPOC_API_BASE = os.getenv("PAYPOC_API_BASE", "http://waf:8080/api")
-MERCHANT_API_KEY = os.getenv("MERCHANT_API_KEY", "pk_nova_demo_bYtR7xQ2")
+MERCHANT_API_KEY = os.environ["MERCHANT_API_KEY"]   # du .env, jamais en dur
 DATABASE_URL = os.environ["DATABASE_URL"]
 JWT_SECRET = os.environ["JWT_SECRET"]
 JWT_TTL_MIN = int(os.getenv("JWT_TTL_MIN", "120"))

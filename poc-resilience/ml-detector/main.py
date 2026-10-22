@@ -1,16 +1,21 @@
-"""ml-detector — détection d'anomalies (Isolation Forest) + déclenchement de la remédiation.
+"""ml-detector — détection d'anomalies (Local Outlier Factor) + déclenchement de la remédiation.
 
 Boucle :
   1. toutes les POLL_SECONDS, construit un vecteur de features depuis Prometheus
      (req/s, taux d'erreurs 5xx, latence p95, taux de 4xx) ;
   2. phase d'apprentissage : collecte WARMUP_SAMPLES points « normaux » puis entraîne
-     un Isolation Forest ;
+     un Local Outlier Factor (mode novelty) sur les features passées en log puis
+     standardisées. Contrairement à un Isolation Forest, dont les coupes restent dans
+     la plage apprise, le LOF compare la densité locale : plus un point s'éloigne de
+     la normale, plus son score chute, donc un flood x100 n'est pas écrêté ;
+     l'entraînement attend une normale qui varie (trafic réel ou service traffic) ;
   3. ensuite, score chaque point ; si anomalie sur ANOMALY_STREAK points consécutifs,
      décide une action (block_ip si flood, sinon restart_service) et appelle le
      moteur de remédiation — SANS intervention humaine ;
   4. période de refroidissement (COOLDOWN_SECONDS) après chaque action.
 
 Expose /metrics (score, état, anomalies, remédiations déclenchées) et /health.
+En mode block_ip, l'émetteur à bloquer est désigné par le moteur de remédiation (ip="auto").
 Logue en JSON sur stdout (service=ml-detector -> Loki).
 """
 
@@ -25,10 +30,11 @@ from datetime import datetime, timezone
 import httpx
 import numpy as np
 from flask import Flask, Response
-from sklearn.ensemble import IsolationForest
+from sklearn.neighbors import LocalOutlierFactor
+from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import FunctionTransformer, StandardScaler
 
 PROM_URL = os.getenv("PROM_URL", "http://prometheus:9090")
-LOKI_URL = os.getenv("LOKI_URL", "http://loki:3100")
 REMEDIATION_URL = os.getenv("REMEDIATION_URL", "http://remediation:8000")
 REMEDIATION_TOKEN = os.getenv("REMEDIATION_TOKEN", "change-me")
 POLL_SECONDS = int(os.getenv("POLL_SECONDS", "5"))
@@ -38,9 +44,9 @@ COOLDOWN_SECONDS = int(os.getenv("COOLDOWN_SECONDS", "60"))
 CONTAMINATION = float(os.getenv("CONTAMINATION", "0.02"))
 AUTO_REMEDIATE = os.getenv("AUTO_REMEDIATE", "true").lower() == "true"
 # Action en cas de flood :
-#   - "restart" (défaut) : redémarre le service — sûr en local mono-poste
-#   - "block_ip"         : bloque l'IP source (vrai setup 2 PC, IP attaquant distincte)
-FLOOD_ACTION = os.getenv("FLOOD_ACTION", "restart")
+#   - "block_ip" (défaut) : bloque l'IP qui émet le flood, désignée par la remédiation
+#   - "restart"          : redémarre le service visé
+FLOOD_ACTION = os.getenv("FLOOD_ACTION", "block_ip")
 
 # --- logs JSON
 class JsonFormatter(logging.Formatter):
@@ -87,29 +93,13 @@ def collect_features() -> dict:
     }
 
 
-def top_attacker_ip() -> str | None:
-    """Récupère l'IP la plus bruyante depuis les access logs du WAF (remote_addr réel)."""
-    expr = ('topk(1, sum by (ip) (count_over_time('
-            '{service="waf"} | regexp `^(?P<ip>[0-9.]+)` [1m])))')
-    try:
-        r = httpx.get(f"{LOKI_URL}/loki/api/v1/query", params={"query": expr}, timeout=4.0)
-        res = r.json()["data"]["result"]
-        if res:
-            ip = res[0]["metric"].get("ip")
-            if ip and ip not in ("127.0.0.1", "::1"):
-                return ip
-    except Exception:
-        pass
-    return None
-
-
 def decide_action(feat: dict, baseline_mean: dict) -> dict:
     """Choisit la remédiation selon le signal dominant."""
     is_flood = feat["req_rate"] > max(5.0, 3 * baseline_mean.get("req_rate", 0) + 1)
     if is_flood and FLOOD_ACTION == "block_ip":
-        ip = top_attacker_ip()
-        if ip:
-            return {"action": "block_ip", "ip": ip, "reason": "flood_http"}
+        # L'émetteur est désigné par le moteur de remédiation, qui lit les logs du WAF
+        # directement (complets), plutôt que Loki (lignes perdues sous flood).
+        return {"action": "block_ip", "ip": "auto", "reason": "flood_http"}
     # Flood en mode restart, ou service dégradé (erreurs / latence) -> redémarrage ciblé
     reason = "flood_http" if is_flood else "service_degraded"
     return {"action": "restart_service", "service": "api", "reason": reason}
@@ -148,7 +138,19 @@ def detector_loop():
             window.append(vec)
             if len(window) >= WARMUP_SAMPLES:
                 X = np.array(window)
-                model = IsolationForest(contamination=CONTAMINATION, random_state=42).fit(X)
+                if float(np.ptp(X[:, 0])) == 0.0:
+                    # Normale sans aucune variation (stack au repos) : un modèle appris
+                    # là-dessus ne distingue rien. On attend du trafic.
+                    audit("training_deferred", reason="no_variance", samples=len(window))
+                    window.clear()
+                    time.sleep(POLL_SECONDS)
+                    continue
+                model = make_pipeline(
+                    FunctionTransformer(np.log1p),
+                    StandardScaler(),
+                    LocalOutlierFactor(n_neighbors=min(20, len(X) - 1), novelty=True,
+                                       contamination=CONTAMINATION),
+                ).fit(X)
                 baseline_mean = {k: float(np.mean([w[i] for w in window])) for i, k in enumerate(FEATURE_NAMES)}
                 STATE["trained"] = 1
                 audit("model_trained", baseline=baseline_mean)

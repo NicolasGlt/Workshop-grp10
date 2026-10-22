@@ -26,3 +26,8 @@ dist/
 Thumbs.db
 .idea/
 .vscode/
+
+# --- Sauvegardes et clés (poc-resilience/backup, secrets SOPS)
+poc-resilience/backup/dumps/
+keys.txt
+*.agekey

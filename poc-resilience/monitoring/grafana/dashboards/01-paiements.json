@@ -43,7 +43,7 @@
       },
       "targets": [
         {
-          "expr": "sum(payment_payments_total{status=\"approved\"})",
+          "expr": "sum(payment_payments_total{status=\"approved\",origin=~\"$origin\"})",
           "refId": "A",
           "datasource": {
             "type": "prometheus",
@@ -91,7 +91,7 @@
       },
       "targets": [
         {
-          "expr": "sum(payment_payments_total{status=\"declined\"})",
+          "expr": "sum(payment_payments_total{status=\"declined\",origin=~\"$origin\"})",
           "refId": "A",
           "datasource": {
             "type": "prometheus",
@@ -139,7 +139,7 @@
       },
       "targets": [
         {
-          "expr": "payment_amount_euros_total",
+          "expr": "sum(payment_amount_euros_total{origin=~\"$origin\"})",
           "refId": "A",
           "datasource": {
             "type": "prometheus",
@@ -179,7 +179,7 @@
       },
       "targets": [
         {
-          "expr": "sum(payment_payments_total{status=\"approved\"}) / clamp_min(sum(payment_payments_total{status=~\"approved|declined\"}),1)",
+          "expr": "sum(payment_payments_total{status=\"approved\",origin=~\"$origin\"}) / clamp_min(sum(payment_payments_total{status=~\"approved|declined\",origin=~\"$origin\"}),1)",
           "refId": "A",
           "datasource": {
             "type": "prometheus",
@@ -236,7 +236,7 @@
       },
       "targets": [
         {
-          "expr": "sum by (outcome) (payment_bank_calls_total)",
+          "expr": "sum by (outcome) (payment_bank_calls_total{origin=~\"$origin\"})",
           "legendFormat": "{{outcome}}",
           "refId": "A",
           "datasource": {
@@ -288,8 +288,8 @@
       },
       "targets": [
         {
-          "expr": "sum by (status) (rate(payment_payments_total[1m]))*60",
-          "legendFormat": "{{status}}",
+          "expr": "sum by (status, origin) (rate(payment_payments_total{origin=~\"$origin\"}[1m]))*60",
+          "legendFormat": "{{status}} ({{origin}})",
           "refId": "A",
           "datasource": {
             "type": "prometheus",
@@ -320,7 +320,7 @@
     },
     {
       "id": 9,
-      "title": "Décisions de la banque",
+      "title": "Décisions de la banque (tout trafic)",
       "type": "piechart",
       "datasource": {
         "type": "prometheus",
@@ -361,7 +361,8 @@
             "percent"
           ]
         }
-      }
+      },
+      "description": "Compteur de la banque : inclut le trafic simulé, non filtré par Origine."
     },
     {
       "id": 10,
@@ -379,7 +380,7 @@
       },
       "targets": [
         {
-          "expr": "rate(payment_amount_euros_total[5m])*60",
+          "expr": "sum(rate(payment_amount_euros_total{origin=~\"$origin\"}[5m]))*60",
           "legendFormat": "€/min",
           "refId": "A",
           "datasource": {
@@ -424,7 +425,7 @@
     },
     {
       "id": 12,
-      "title": "Motifs de refus (cumul)",
+      "title": "Motifs de refus (cumul) (tout trafic)",
       "type": "timeseries",
       "datasource": {
         "type": "prometheus",
@@ -465,7 +466,8 @@
         "tooltip": {
           "mode": "multi"
         }
-      }
+      },
+      "description": "Compteur de la banque : inclut le trafic simulé, non filtré par Origine."
     },
     {
       "id": 13,
@@ -483,7 +485,7 @@
       },
       "targets": [
         {
-          "expr": "{service=\"api\"} |= \"payment_\" | json",
+          "expr": "{service=\"api\"} |= \"payment_\" | json | origin=~\"$origin\"",
           "queryType": "range",
           "refId": "A",
           "datasource": {
@@ -502,10 +504,103 @@
         "sortOrder": "Descending",
         "enableLogDetails": true
       }
+    },
+    {
+      "id": 14,
+      "type": "row",
+      "title": "Trafic simulé (service traffic, hors chiffres métier)",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 23,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "id": 15,
+      "title": "Paiements simulés/min par statut",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 24,
+        "w": 24,
+        "h": 6
+      },
+      "targets": [
+        {
+          "expr": "sum by (status) (rate(payment_payments_total{origin=\"simulated\"}[1m]))*60",
+          "legendFormat": "{{status}}",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "description": "Paiements marqués X-Traffic-Origin: simulated (CHARGE_RATIO, 5 % des requêtes du service traffic). Exclus des chiffres du haut quand Origine = client."
     }
   ],
   "templating": {
-    "list": []
+    "list": [
+      {
+        "name": "origin",
+        "label": "Origine des paiements",
+        "type": "custom",
+        "query": "client,simulated",
+        "current": {
+          "selected": true,
+          "text": "client",
+          "value": "client"
+        },
+        "options": [
+          {
+            "selected": false,
+            "text": "All",
+            "value": "$__all"
+          },
+          {
+            "selected": true,
+            "text": "client",
+            "value": "client"
+          },
+          {
+            "selected": false,
+            "text": "simulated",
+            "value": "simulated"
+          }
+        ],
+        "includeAll": true,
+        "allValue": ".*",
+        "multi": false,
+        "hide": 0,
+        "description": "client = vrais paiements (défaut). simulated = service traffic (X-Traffic-Origin), sert à l'apprentissage de ml-detector."
+      }
+    ]
   },
   "annotations": {
     "list": []

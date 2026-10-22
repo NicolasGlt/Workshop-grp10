@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Back-office PayPoc</title>
+<style>
+  :root { --bg: #f4f5f9; --card: #fff; --text: #1d1b33; --muted: #6b6a80; --border: #d9dae6; --accent: #3b3f8f;
+          --ok: #1f7a4d; --ko: #b3261e; --wait: #8a6100; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #14141c; --card: #1e1e2a; --text: #ececf3; --muted: #a2a1b6; --border: #34344a; --accent: #8f94ff;
+            --ok: #5fd39a; --ko: #ff8a80; --wait: #f2c14e; }
+  }
+  body { margin: 0; background: var(--bg); color: var(--text); font-family: system-ui, sans-serif; }
+  main { max-width: 1040px; margin: 32px auto; padding: 0 16px; display: grid; gap: 16px; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 20px 24px; }
+  h1 { font-size: 22px; font-weight: 600; margin: 0 0 4px; }
+  h2 { font-size: 16px; font-weight: 600; margin: 0 0 12px; }
+  p { color: var(--muted); margin: 0; }
+  .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+  .kpi { border: 1px solid var(--border); border-radius: 10px; padding: 12px; }
+  .kpi b { display: block; font-size: 24px; margin-top: 4px; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--border); }
+  th { color: var(--muted); font-weight: 500; }
+  .COMPLETED { color: var(--ok); } .REJECTED, .FAILED, .WARN, .ERROR { color: var(--ko); } .PENDING { color: var(--wait); }
+  .scroll { overflow-x: auto; }
+  a, button { display: inline-block; margin: 8px 8px 0 0; padding: 10px 16px; border-radius: 8px; font-size: 15px;
+              border: 1px solid var(--border); background: var(--card); color: var(--text); text-decoration: none; cursor: pointer; }
+  a.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<main>
+  <div class="card">
+    <h1>Back-office PayPoc</h1>
+    <p id="who">…</p>
+    <a id="admin" class="primary" href="/admin" hidden>Gestion des habilitations</a>
+    <a id="grafana" target="_blank" rel="noopener">Supervision (Grafana)</a>
+    <a id="pgadmin" target="_blank" rel="noopener" hidden>Console BDD (pgAdmin)</a>
+    <a id="shop" target="_blank" rel="noopener">Boutique</a>
+    <button id="logout" type="button">Se déconnecter</button>
+  </div>
+
+  <div class="card">
+    <h2>Paiements des dernières 24 h</h2>
+    <div class="kpis">
+      <div class="kpi">Total<b id="k-total">…</b></div>
+      <div class="kpi">Encaissés<b id="k-completed">…</b></div>
+      <div class="kpi">Refusés<b id="k-rejected">…</b></div>
+      <div class="kpi">En attente 3DS<b id="k-pending">…</b></div>
+      <div class="kpi">Volume encaissé<b id="k-volume">…</b></div>
+    </div>
+    <p id="merchants" style="margin-top:12px"></p>
+  </div>
+
+  <div class="card" id="tx-card" hidden>
+    <h2>Dernières transactions</h2>
+    <div class="scroll"><table><thead><tr><th>Date</th><th>Montant</th><th>Statut</th><th>Référence banque</th><th>Description</th></tr></thead>
+      <tbody id="tx"></tbody></table></div>
+  </div>
+
+  <div class="card" id="sec-card" hidden>
+    <h2>Journal de sécurité du SI</h2>
+    <div class="scroll"><table><thead><tr><th>Date</th><th>Niveau</th><th>Événement</th><th>IP</th><th>Détail</th></tr></thead>
+      <tbody id="sec"></tbody></table></div>
+  </div>
+</main>
+<script>
+const $ = (id) => document.getElementById(id);
+const fmtDate = (s) => new Date(s).toLocaleString("fr-FR");
+const fmtEur = (n) => Number(n).toLocaleString("fr-FR", { style: "currency", currency: "EUR" });
+
+function fill(tbody, rows, cols) {
+  tbody.replaceChildren(...rows.map((r) => {
+    const tr = document.createElement("tr");
+    for (const [value, cls] of cols(r)) {
+      const td = document.createElement("td");
+      td.textContent = value ?? "";
+      if (cls) td.className = cls;
+      tr.append(td);
+    }
+    return tr;
+  }));
+}
+
+async function get(url) {
+  const r = await fetch(url, { cache: "no-store" });
+  if (r.status === 401) { window.location.href = "/"; throw new Error("session"); }
+  return r.ok ? r.json() : null;
+}
+
+async function refresh(me) {
+  const s = await get("/api/si/summary");
+  if (s) {
+    $("k-total").textContent = s.total; $("k-completed").textContent = s.completed;
+    $("k-rejected").textContent = s.rejected; $("k-pending").textContent = s.pending;
+    $("k-volume").textContent = fmtEur(s.volume);
+    $("merchants").textContent = "Marchands : " + s.merchants.map((m) => m.name).join(", ");
+    $("grafana").href = s.links.grafana; $("pgadmin").href = s.links.pgadmin; $("shop").href = s.links.shop;
+  }
+  if (me.role !== "lecteur") {
+    const tx = await get("/api/si/transactions");
+    if (tx) fill($("tx"), tx, (t) => [[fmtDate(t.date_transaction)], [fmtEur(t.montant)], [t.statut, t.statut],
+                                         [t.reference_banque], [t.description]]);
+    const sec = await get("/api/si/security");
+    if (sec) fill($("sec"), sec, (l) => [[fmtDate(l.date_log)], [l.niveau, l.niveau], [l.type_event],
+                                          [l.adresse_ip], [l.description]]);
+  }
+}
+
+(async () => {
+  const me = await get("/api/me");
+  if (!me) return;
+  $("who").textContent = `Connecté : ${me.username} (rôle ${me.role})`;
+  $("admin").hidden = me.role !== "admin";
+  $("pgadmin").hidden = me.role !== "admin";
+  $("tx-card").hidden = $("sec-card").hidden = me.role === "lecteur";
+  await refresh(me);
+  setInterval(() => refresh(me), 10000);
+})();
+$("logout").addEventListener("click", async () => {
+  await fetch("/api/logout", { method: "POST" });
+  window.location.href = "/";
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gestion des habilitations</title>
+<style>
+  :root { --bg: #f4f5f9; --card: #fff; --text: #1d1b33; --muted: #6b6a80; --border: #d9dae6;
+          --accent: #3b3f8f; --ok: #1f8a4c; --ko: #c62828; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #14141c; --card: #1e1e2a; --text: #ececf3; --muted: #a2a1b6; --border: #34344a;
+            --accent: #8f94ff; --ok: #4cc27c; --ko: #ff6b6b; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font-family: system-ui, sans-serif; }
+  main { max-width: 1000px; margin: 24px auto; padding: 0 16px; }
+  header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; }
+  h1 { font-size: 22px; font-weight: 600; margin: 0; }
+  h2 { font-size: 17px; font-weight: 600; margin: 0 0 12px; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 20px; margin-top: 16px; overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+  th { color: var(--muted); font-weight: 500; }
+  input, select { padding: 7px 9px; font-size: 14px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); color: var(--text); }
+  button, a.btn { padding: 7px 11px; font-size: 13px; border: 1px solid var(--border); border-radius: 6px; background: var(--card);
+                  color: var(--text); cursor: pointer; text-decoration: none; margin: 2px; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button.danger { color: var(--ko); }
+  .ok { color: var(--ok); } .ko { color: var(--ko); } .muted { color: var(--muted); }
+  form.inline { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  #msg { min-height: 20px; margin-top: 10px; font-size: 14px; }
+  #enroll { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); }
+  #enroll h3 { font-size: 15px; font-weight: 600; margin: 0; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Gestion des habilitations</h1>
+    <div><a class="btn" href="/backoffice">Back-office</a><button id="led">Tester la LED</button><button id="logout">Se déconnecter</button></div>
+  </header>
+
+  <div class="card">
+    <h2>Utilisateurs</h2>
+    <table>
+      <thead><tr><th>Identifiant</th><th>Rôle</th><th>Accès back-office</th><th>Visage</th><th>État</th><th>Actions</th></tr></thead>
+      <tbody id="users"></tbody>
+    </table>
+    <div id="msg" role="status"></div>
+    <div id="enroll" hidden>
+      <h3 id="enroll-title"></h3>
+      <p class="muted">La personne seule face à la webcam USB, à 50 cm environ : 5 angles, chacun pris dès qu'il est tenu.</p>
+      <div id="ge"></div>
+      <button id="enroll-close" hidden>Fermer</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Nouvel utilisateur</h2>
+    <form id="create" class="inline" autocomplete="off">
+      <input name="username" placeholder="Identifiant" required>
+      <input name="password" type="password" placeholder="Mot de passe (8 car. min.)" minlength="8" required>
+      <select name="role"><option value="lecteur">lecteur</option><option value="operateur">operateur</option><option value="admin">admin</option></select>
+      <button class="primary" type="submit">Créer</button>
+    </form>
+    <p class="muted">Après la création, cliquez sur « Enrôler » : la personne suit à l'écran la consigne d'angle (face, gauche, droite, haut, bas).</p>
+  </div>
+
+  <div class="card">
+    <h2>Journal d'authentification (50 derniers)</h2>
+    <table><thead><tr><th>Heure</th><th>Identifiant</th><th>Événement</th><th>Score</th><th>Détail</th></tr></thead><tbody id="events"></tbody></table>
+  </div>
+</main>
+<script src="/static/enroll.js"></script>
+<script>
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const msg = (text, kind = "") => { $("msg").textContent = text; $("msg").className = kind; };
+const date = (ts) => ts ? new Date(ts * 1000).toLocaleString("fr-FR") : "";
+
+async function api(method, url, body) {
+  const r = await fetch(url, { method, headers: body ? { "Content-Type": "application/json" } : {}, body: body ? JSON.stringify(body) : undefined });
+  if (r.status === 401 || r.status === 403) { window.location.href = "/"; throw new Error("session"); }
+  let data = null; try { data = await r.json(); } catch (e) {}
+  if (!r.ok) throw new Error((data && (data.detail || data.status)) || ("HTTP " + r.status));
+  return data;
+}
+
+async function load() {
+  const users = await api("GET", "/api/admin/users");
+  $("users").innerHTML = users.map((u) => `
+    <tr data-id="${u.id}">
+      <td>${esc(u.username)}</td>
+      <td><select data-act="role">${["admin", "operateur", "lecteur"].map((r) => `<option ${r === u.role ? "selected" : ""}>${r}</option>`).join("")}</select></td>
+      <td><input type="checkbox" data-act="access" ${u.backoffice_enabled ? "checked" : ""}></td>
+      <td>${u.templates ? `<span class="ok">enrôlé</span> <span class="muted">${date(u.enrolled_at)}</span>` : '<span class="ko">non enrôlé</span>'}</td>
+      <td>${u.locked_for ? `<span class="ko">bloqué ${Math.ceil(u.locked_for / 60)} min</span>` : (u.failures ? `${u.failures} échec` : '<span class="ok">ok</span>')}</td>
+      <td>
+        <button data-act="enroll">Enrôler</button>
+        <button data-act="unface" ${u.templates ? "" : "disabled"}>Supprimer visage</button>
+        <button data-act="unlock" ${u.locked_for || u.failures ? "" : "disabled"}>Débloquer</button>
+        <button data-act="pwd">Mot de passe</button>
+        <button data-act="delete" class="danger">Supprimer</button>
+      </td>
+    </tr>`).join("");
+  const events = await api("GET", "/api/admin/events");
+  $("events").innerHTML = events.map((e) => `<tr><td>${date(e.ts)}</td><td>${esc(e.username)}</td><td>${esc(e.event)}</td><td>${e.score ?? ""}</td><td>${esc(e.detail)}</td></tr>`).join("");
+}
+
+$("users").addEventListener("change", async (e) => {
+  const id = e.target.closest("tr").dataset.id, act = e.target.dataset.act;
+  if (act !== "role" && act !== "access") return;   // ex. champ mot de passe : géré par « Valider »
+  try {
+    if (act === "role") await api("PATCH", `/api/admin/users/${id}`, { role: e.target.value });
+    if (act === "access") await api("PATCH", `/api/admin/users/${id}`, { backoffice_enabled: e.target.checked });
+    msg("Modification enregistrée.", "ok");
+  } catch (err) { msg(err.message, "ko"); }
+  load();
+});
+
+$("users").addEventListener("click", async (e) => {
+  const act = e.target.dataset.act;
+  if (!act || e.target.tagName !== "BUTTON") return;
+  const row = e.target.closest("tr"), id = row.dataset.id, name = row.cells[0].textContent;
+  if (act === "pwd") {
+    row.cells[5].innerHTML = `<input type="password" data-pwd placeholder="Nouveau (8 car. min.)" minlength="8">
+      <button data-act="pwdsave" class="primary">Valider</button><button data-act="pwdcancel">Annuler</button>`;
+    row.querySelector("[data-pwd]").focus();
+    return;
+  }
+  if (act === "pwdcancel") { load(); return; }
+  if (act === "pwdsave") {
+    const value = row.querySelector("[data-pwd]").value;
+    if (value.length < 8) { msg("Le mot de passe doit faire au moins 8 caractères.", "ko"); return; }
+    try { await api("PATCH", `/api/admin/users/${id}`, { password: value }); msg(`Mot de passe de ${name} changé.`, "ok"); }
+    catch (err) { msg(err.message, "ko"); }
+    load();
+    return;
+  }
+  // Confirmation en deux clics dans la page (les fenêtres confirm() sont bloquées dans certains navigateurs intégrés).
+  if ((act === "unface" || act === "delete") && e.target.dataset.armed !== "1") {
+    e.target.dataset.armed = "1"; e.target.textContent = "Confirmer ?";
+    setTimeout(() => load(), 4000);
+    return;
+  }
+  try {
+    if (act === "enroll") { enroll(id, name); return; }
+    if (act === "unface") { await api("DELETE", `/api/admin/users/${id}/face`); msg(`Visage de ${name} supprimé.`, "ok"); }
+    if (act === "unlock") { await api("POST", `/api/admin/users/${id}/unlock`); msg(`${name} débloqué.`, "ok"); }
+    if (act === "delete") { await api("DELETE", `/api/admin/users/${id}`); msg(`Utilisateur ${name} supprimé.`, "ok"); }
+  } catch (err) { msg(err.message, "ko"); }
+  load();
+});
+
+// Enrôlement guidé (enroll.js) : aperçu avant capture, consigne par angle, recommencer possible.
+function enroll(id, name) {
+  msg("");
+  $("enroll").hidden = false; $("enroll-close").hidden = true;
+  $("enroll-title").textContent = `Enrôlement du visage de ${name}`;
+  $("enroll").scrollIntoView({ behavior: "smooth", block: "nearest" });
+  guidedEnroll($("ge"), {
+    start: () => fetch(`/api/admin/users/${id}/face`, { method: "POST" }),
+    onEnd: (s) => {
+      $("enroll-close").hidden = false;
+      if (s.status === "done") msg(`Visage de ${name} enrôlé (${s.captured} angles).`, "ok");
+      load().catch(() => {});
+    },
+  });
+}
+$("enroll-close").addEventListener("click", () => { $("enroll").hidden = true; $("ge").innerHTML = ""; });
+
+$("create").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const f = new FormData(e.target);
+  try {
+    await api("POST", "/api/admin/users", { username: f.get("username"), password: f.get("password"), role: f.get("role") });
+    msg(`Utilisateur ${f.get("username")} créé. Enrôlez maintenant son visage.`, "ok");
+    e.target.reset();
+  } catch (err) { msg(err.message, "ko"); }
+  load();
+});
+
+$("led").addEventListener("click", async () => { await api("POST", "/api/admin/led/test"); msg("Test LED : vert clignotant, puis rouge ×10.", "ok"); });
+$("logout").addEventListener("click", async () => { await fetch("/api/logout", { method: "POST" }); window.location.href = "/"; });
+
+load().catch(() => {});
+</script>
+</body>
+</html>

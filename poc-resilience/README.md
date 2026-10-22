@@ -32,7 +32,8 @@ Le client saisit ses coordonnées et sa carte sur la boutique. Le marchand trans
 | `clientapp` | **NovaPay** : espace client (néobanque) — Alice/Bob consultent solde, cartes, opérations (lecture seule) | **:8083** |
 | `db` | PostgreSQL — **schéma bancaire du groupe** (utilisateurs, comptes, comptes_bancaires, cartes, transactions, logs) + table `merchants` de la passerelle | interne |
 | `pgadmin` | Console d'admin de la base (serveur pré-enregistré) | **:5050** |
-| `ml-detector` | Détection d'anomalies (Isolation Forest) → déclenche la remédiation | interne |
+| `ml-detector` | Détection d'anomalies (Local Outlier Factor) → déclenche la remédiation | interne |
+| `traffic` | Clients simulés à faible débit (1 à 6 req/s, cartes de test) : la plateforme n'est jamais muette | interne |
 | `remediation` | Moteur de remédiation : playbooks Ansible (block_ip, restart) | interne |
 | `prometheus` + exporters | métriques | :9090 (local) |
 | `loki` + `alloy` | logs de tous les conteneurs | interne |
@@ -42,9 +43,11 @@ Réseaux : `edge` (waf, frontend, merchant) seul exposé ; `app` et `data` inter
 
 ## Démarrage
 
+Depuis la racine du dépôt : `just env`, `just up`, `just smoke` (voir le [README racine](../README.md#démarrage)). Équivalent à la main :
+
 ```bash
 cp .env.example .env
-# remplacer les "change-me" ; laisser MERCHANT_API_KEY tel quel (doit matcher le seed)
+# remplacer toutes les valeurs "change-me" (la clé marchand est posée en base au 1er démarrage)
 docker compose up -d --build        # ajouter --scale cadvisor=0 sous Docker Desktop
 docker compose ps
 ./scripts/smoke-test.sh
@@ -156,8 +159,42 @@ docker compose down -v         # réinitialisation complète (BDD + soldes banqu
 | `db` en boucle, `pg_admin disallowed` | le `POSTGRES_USER` ne doit pas commencer par `pg_` (ici `db_admin`) |
 | `db` en boucle, `\r`/`not found` | scripts en CRLF → convertir `db/init/*` en LF, puis `down -v` |
 | Paiement « Banque injoignable » | `docker compose logs bank` ; le paiement reste rejouable |
-| Clé API invalide au `/buy` | `MERCHANT_API_KEY` du `.env` ≠ `api_key` du seed → réaligner, `down -v` |
+| Clé API invalide au `/buy` | `MERCHANT_API_KEY` du `.env` changée après le 1er démarrage → `docker compose exec db sh /docker-entrypoint-initdb.d/06-merchant-key.sh` |
 | Target `cadvisor` down | normal sous Docker Desktop : `--scale cadvisor=0` |
+
+## Sauvegarde, restauration et secrets
+
+### Sauvegarde et restauration de la base (PRA, §3.5)
+
+Tout passe par le conteneur `db` (`docker compose exec -T db`) : aucun client PostgreSQL n'est requis sur l'hôte. Scripts dans [`backup/`](backup/), dumps dans `backup/dumps/` (ignoré par Git).
+
+| Commande | Effet |
+|---|---|
+| `just backup` | `pg_dump -Fc` horodaté de `payments`, empreinte `.sha256`, comptes de lignes `.counts`, rotation des 7 derniers (`KEEP=n` pour changer) |
+| `just restore-check [dump]` | restaure dans `payments_restore_test`, compare chaque table au dump, supprime la base de test : **la prod n'est pas touchée** |
+| `just restore [dump]` | **remplace** `payments` (confirmation demandée) : vérifie l'empreinte, recrée la base de zéro, compare les comptes, affiche le **RTO mesuré** et les transactions perdues depuis le dump (**RPO observé**) |
+
+Sans argument, le dump le plus récent est pris ; un chemin se donne relatif à `poc-resilience/` (`just restore backup/dumps/payments-20261022-101500.dump`).
+
+- **Cohérence** : les comptes de lignes sont pris dans la même transaction (snapshot exporté vers `pg_dump`) que le dump, ils restent exacts même si le trafic de démo écrit pendant la sauvegarde.
+- **Intégrité** : un dump dont l'empreinte SHA-256 ne correspond plus est refusé ; après restauration, un écart de comptes fait échouer la commande.
+- **Restauration** : `DROP DATABASE ... WITH (FORCE)` coupe les sessions des services (ils se reconnectent seuls), puis `pg_restore --create` rejoue la base, son schéma, ses droits et ses données. Les rôles (`app_user`, `exporter`, `backoffice`) sont globaux au cluster et ne sont pas dans le dump : après un `just reset`, faire `just up` (les scripts d'init les recréent) avant `just restore`.
+- **Limite** : les dumps restent sur le même hôte que la base. Contre le rançongiciel (R3), une copie doit sortir de l'hôte (support hors ligne ou stockage immuable) ; c'est hors du périmètre du POC.
+
+Stack Podman : `DB_EXEC="podman exec -i resilience-alpha_db_1" just backup` (de même pour `restore` et `restore-check`).
+
+### Secrets (SOPS + age, §3.4)
+
+Le `.env` en clair reste local et ignoré par Git ; sa version chiffrée `secrets/poc-resilience.enc.env` est versionnée, déchiffrable par les seules clés age listées dans `.sops.yaml` à la racine. Chaque membre a sa propre clé, aucune clé privée ne circule.
+
+| Commande | Effet |
+|---|---|
+| `just secrets-keygen` | crée sa clé age hors dépôt et affiche la clé publique à ajouter dans `.sops.yaml` |
+| `just secrets-encrypt` | chiffre `poc-resilience/.env` vers le fichier versionné |
+| `just secrets-decrypt` | régénère `poc-resilience/.env` (poste neuf, PC Hôte) |
+| `just secrets-edit` / `just secrets-updatekeys` | modifier un secret / rechiffrer après l'ajout ou le départ d'un membre |
+
+Procédure complète et distribution des clés : [`secrets/README.md`](secrets/README.md).
 
 ## Boucle de résilience autonome (détection → remédiation)
 
@@ -166,21 +203,27 @@ Le cœur du sujet : attaque → détection → **réponse automatique sans inter
 ```
   métriques        anomalie          décision           action Ansible
 Prometheus ─► ml-detector ─────► remediation ─────► block_ip  (deny nginx + reload)
-  /Loki       Isolation Forest    (token, remnet)    restart_service (docker restart)
+  /Loki       LOF (novelty)       (token, remnet)    restart_service (docker restart)
                                                       ▲ socket Docker (seul composant)
 ```
 
-- **ml-detector** apprend la « normale » (débit, erreurs, latence) pendant ~2 min, puis score chaque mesure. Après 3 anomalies consécutives, il décide une action et appelle la remédiation. Expose `ml_detector_anomaly`, `ml_detector_anomaly_score`, `ml_detector_remediations_total`.
+- **ml-detector** apprend la « normale » (débit, erreurs, latence) pendant ~2 min, puis score chaque mesure. Modèle : Local Outlier Factor en mode novelty, sur les features en log puis standardisées. Un Isolation Forest a été écarté : ses coupes restent dans la plage apprise, un flood x100 recevait le même score qu'un pic normal (mesuré le 21/10). La normale vient du service `traffic` ; sans aucune variation (stack au repos), l'entraînement est différé. Après 3 anomalies consécutives, il décide une action et appelle la remédiation. Expose `ml_detector_anomaly`, `ml_detector_anomaly_score`, `ml_detector_remediations_total`.
 - **remediation** exécute les playbooks Ansible. Accès maîtrisé : réseau interne `remnet` (joignable seulement par le détecteur), token obligatoire, garde-fous (IP jamais bloquées via `SAFE_IPS`, TTL de 5 min sur les blocages, anti-boucle sur les redémarrages). C'est le **seul** composant avec accès au socket Docker.
 - Deux modes selon l'environnement (variable `FLOOD_ACTION`) :
-  - `restart` (défaut, **mono-poste local**) : un flood sature l'API → redémarrage du service.
-  - `block_ip` (**setup 2 PC**) : l'IP de l'attaquant est identifiée (logs WAF) et bloquée au niveau du frontend → le flood tombe en 403, le service reste dispo.
+  - `restart` : redémarrage du service. Le frontend résout `api` dynamiquement, il suit la nouvelle IP du conteneur.
+  - `block_ip` (**défaut**) : l'IP de l'attaquant est désignée par le moteur de remédiation, qui compte les clients dans les logs du conteneur WAF sur 60 s (access log et audit ModSecurity), puis bloquée au niveau du frontend → le flood tombe en 403, le service reste dispo. Marche aussi sur un seul poste : le conteneur `hey` de la démo a sa propre IP.
 
 ### Démo de reprise (Clip Chrono)
 
 ```powershell
-./scripts/demo-incident.ps1
+./scripts/demo-incident.ps1      # Windows
 ```
+
+```bash
+./scripts/demo-incident.sh       # Linux, Docker ou Podman (ENGINE=podman)
+```
+
+Le script attend que le détecteur soit entraîné (~2 min après le démarrage) avant d'attaquer.
 
 Le script : montre une transaction OK (avant), déclenche le flood, laisse la boucle détecter et remédier, puis rejoue une transaction (après). À regarder en direct dans Grafana → **07 · Résilience**. Suivi des décisions :
 
@@ -200,7 +243,5 @@ docker compose exec remediation sh -c "wget -qO- http://localhost:8000/status"
 ## Prochaines étapes
 
 1. Assistant RAG local (Ollama + LangChain) pour les opérateurs.
-2. Gestion des secrets par SOPS (en remplacement du `.env`).
-3. Gouvernance : EBIOS RM, PCA/PRA, mapping NIS2/DORA.
-4. Générateur de trafic légitime permanent (baseline plus riche).
-5. Sauvegarde / restauration PostgreSQL (RTO/RPO).
+2. Gouvernance : EBIOS RM, PCA/PRA, mapping NIS2/DORA.
+3. Copie des sauvegardes hors de l'hôte (support hors ligne ou immuable).

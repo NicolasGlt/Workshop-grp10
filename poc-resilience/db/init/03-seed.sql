@@ -23,9 +23,10 @@ BEGIN
                            'Shop_Comptoir_2026!', NULL, 'Paris');
     v_shop_bank := ajouter_compte_bancaire(v_shop, 'FR-SHOP-COMPTOIR-001', 0, 'EUR');
 
-    -- Clé API partagée avec le service merchant (MERCHANT_API_KEY)
+    -- Clé API : valeur provisoire, remplacée par MERCHANT_API_KEY du .env (06-merchant-key.sh).
+    -- Aucune clé réelle dans le dépôt.
     INSERT INTO merchants(name, api_key, id_compte_bancaire)
-    VALUES ('Brulerie du Comptoir', 'pk_nova_demo_bYtR7xQ2', v_shop_bank);
+    VALUES ('Brulerie du Comptoir', 'pk_placeholder_' || gen_random_uuid(), v_shop_bank);
 END $$;
 
 -- 2) Jeu de démo du collègue (comptes utilisateurs classiques)
