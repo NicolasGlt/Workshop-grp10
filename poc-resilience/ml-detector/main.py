@@ -48,6 +48,13 @@ AUTO_REMEDIATE = os.getenv("AUTO_REMEDIATE", "true").lower() == "true"
 #   - "restart"          : redémarre le service visé
 FLOOD_ACTION = os.getenv("FLOOD_ACTION", "block_ip")
 
+# Garde-fou complémentaire au modèle (sujet §3.3 : la détection reste du ML, on borne seulement
+# l'ACTION) : on ne remédie une anomalie que si un symptôme réel l'accompagne — flood, taux
+# d'erreur ou latence au-delà d'un plancher. Une anomalie sans symptôme (plateforme au repos)
+# est journalisée mais ne déclenche aucune remédiation parasite.
+ERR_RATIO_FLOOR = float(os.getenv("ERR_RATIO_FLOOR", "0.05"))     # 5 % de réponses 5xx
+P95_LATENCY_FLOOR = float(os.getenv("P95_LATENCY_FLOOR", "1.0"))  # secondes (normale ~0,1 s)
+
 # --- logs JSON
 class JsonFormatter(logging.Formatter):
     def format(self, r):
@@ -93,9 +100,24 @@ def collect_features() -> dict:
     }
 
 
+def _is_flood(feat: dict, baseline_mean: dict) -> bool:
+    return feat["req_rate"] > max(5.0, 3 * baseline_mean.get("req_rate", 0) + 1)
+
+
+def warrants_action(feat: dict, baseline_mean: dict) -> bool:
+    """Symptôme réel justifiant une remédiation (complément du modèle, cf. §3.3).
+
+    Le modèle détecte l'anomalie ; ce garde-fou évite d'agir sur une anomalie sans
+    symptôme (plateforme au repos), qui provoquerait une remédiation parasite.
+    """
+    return (_is_flood(feat, baseline_mean)
+            or feat["err_ratio"] >= ERR_RATIO_FLOOR
+            or feat["p95_latency"] >= P95_LATENCY_FLOOR)
+
+
 def decide_action(feat: dict, baseline_mean: dict) -> dict:
     """Choisit la remédiation selon le signal dominant."""
-    is_flood = feat["req_rate"] > max(5.0, 3 * baseline_mean.get("req_rate", 0) + 1)
+    is_flood = _is_flood(feat, baseline_mean)
     if is_flood and FLOOD_ACTION == "block_ip":
         # L'émetteur est désigné par le moteur de remédiation, qui lit les logs du WAF
         # directement (complets), plutôt que Loki (lignes perdues sous flood).
@@ -172,6 +194,13 @@ def detector_loop():
 
         now = time.time()
         if streak >= ANOMALY_STREAK and now >= cooldown_until:
+            if not warrants_action(feat, baseline_mean):
+                # Anomalie détectée par le modèle mais sans symptôme réel : on n'agit pas,
+                # pour ne pas casser le service par une remédiation parasite (faux positif R11).
+                audit("remediation_skipped_no_symptom", features=feat)
+                streak = 0
+                time.sleep(POLL_SECONDS)
+                continue
             decision = decide_action(feat, baseline_mean)
             audit("decision", **decision, features=feat)
             remediate(decision)
