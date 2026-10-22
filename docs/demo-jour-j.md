@@ -47,11 +47,23 @@ Fiche à suivre sur le PC Hôte (Windows, Docker Desktop), du déballage au pass
 | Débit observé (req/s) | le flood fait sortir le débit de la normale apprise |
 | Score d'anomalie et Drapeau anomalie | le Local Outlier Factor classe le point comme anormal, sans seuil écrit à la main |
 | Remédiations déclenchées, Actions de remédiation | ml-detector appelle la remédiation Ansible, sans humain |
-| IP bloquées actuellement | l'IP de l'attaquant est bloquée au WAF (`FLOOD_ACTION=block_ip`) |
+| IP bloquées actuellement | l'IP fautive est bloquée au WAF (`FLOOD_ACTION=block_ip`) ; sur l'adresse affichée, voir la note sous le tableau |
 | Disponibilité API | le service reste ou revient à 1 |
 | Journal de la boucle autonome | la chaîne détection, décision, action, horodatée |
 
 Le trafic simulé (service `traffic`) fait vivre la normale : il passe par le WAF comme un marchand, mais ses paiements portent `origin="simulated"` et ses transactions sont préfixées `[SIM]`. Les dashboards 00 et 01 ne montrent que les paiements clients par défaut, la variable **Origine des paiements** permet d'afficher le trafic simulé ou tout le trafic.
+
+**Sur l'IP affichée.** Sous Docker Desktop (Windows), le panneau affiche `172.21.0.1`, la passerelle du réseau Docker, et non l'IP réelle de l'attaquant : le relais de port de Docker Desktop réécrit l'adresse source avant qu'elle n'atteigne le WAF, un peu comme un standard téléphonique qui présente son propre numéro. Le blocage coupe tout de même l'attaquant, dont le trafic entre par cette passerelle ; seule l'adresse affichée change. Sur un hôte Docker Linux, le relais conserve l'adresse source et l'on verrait la vraie IP. À dire à l'oral : c'est un effet de l'environnement de démo, pas une limite du dispositif de défense.
+
+## Rejouer l'incident (répétitions)
+
+Après un blocage, l'IP fautive reste en liste noire le temps du TTL de la remédiation (5 min) avant un déblocage automatique. Pour répéter la séquence flood → détection → blocage sans attendre, débloquer tout de suite :
+
+```bash
+just attack-reset
+```
+
+La recette appelle l'action `unblock_ip` du moteur de remédiation : elle retire les IP de la blocklist nginx, recharge le frontend et vide l'état interne du moteur. Le détecteur reste entraîné, il n'y a pas de nouvelle phase d'apprentissage. Laisser le débit retomber une minute (le flood pèse sur la moyenne mobile du détecteur) avant de relancer une attaque, sinon le modèle peut rebloquer aussitôt.
 
 ## Plan B
 
@@ -62,5 +74,6 @@ Le trafic simulé (service `traffic`) fait vivre la normale : il passe par le WA
 | Grafana vide | Prometheus ou Loki pas encore prêt | attendre 1 min, recharger |
 | `just demo` répond « détecteur non entraîné » | stack redémarrée il y a moins de 2 min | relancer `just demo-prep`, qui attend l'apprentissage |
 | Pas de remédiation pendant le flood | normale apprise pendant une charge inhabituelle | `just down`, `just demo-prep`, ne rien lancer pendant l'apprentissage |
+| Besoin de rejouer l'incident | IP encore bloquée (TTL de 5 min) | `just attack-reset`, puis laisser le débit retomber une minute |
 | Back-office : caméra indisponible, LED muette, compte bloqué | voir la fiche | [auth-faciale/docs/lancement.md](../auth-faciale/docs/lancement.md#en-cas-de-problème) |
 | Tout est cassé à J − 5 min | | dérouler la démo à l'oral sur le schéma d'architecture et les dashboards |
