@@ -30,6 +30,8 @@ services:
       MODSEC_AUDIT_LOG_FORMAT: JSON
       ACCESSLOG: /dev/stdout
       ERRORLOG: /dev/stderr
+    volumes:
+      - ./waf/91-backend-dynamique.sh:/docker-entrypoint.d/91-backend-dynamique.sh:ro
     depends_on:
       frontend: { condition: service_healthy }
     networks: [edge]
