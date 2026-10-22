@@ -39,7 +39,10 @@ docker run --rm --network resilience-alpha_edge williamyeh/hey -z 60s -c 90 -T a
 Write-Host "`n=== 3. Reprise autonome en cours (détection -> remédiation) ===" -ForegroundColor Yellow
 Write-Host "Suivi : docker compose logs -f ml-detector remediation"
 Start-Sleep -Seconds 25
-Write-Host ("Remédiations déclenchées : " + ((Remediations) - $avant))
+$declenchees = (Remediations) - $avant
+Write-Host ("Remédiations déclenchées : " + $declenchees)
+# Démo rejouée moins de 5 min après la précédente : l'attaquant est encore bloqué (BLOCK_TTL)
+if ($declenchees -eq 0) { Write-Host "  attaquant encore bloqué par la remédiation précédente (5 min) : flood rejeté en 403 à l'entrée" }
 
 Write-Host "`n=== 4. État APRÈS remédiation ===" -ForegroundColor Cyan
 Start-Sleep -Seconds 10
