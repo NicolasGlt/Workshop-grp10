@@ -170,6 +170,13 @@ services:
       BLOCK_TTL: "300"
       MAX_RESTARTS: "3"
       SAFE_IPS: ${SAFE_IPS:-127.0.0.1}
+    # Publiée sur la boucle locale SEULEMENT, comme la base de données : permet à
+    # l'orchestrateur d'incident (hôte) d'appeler l'API (toujours protégée par token +
+    # catalogue d'actions fermé). Invisible depuis le point d'accès de la démo.
+    # Sur un hôte Docker Linux natif, on ferait tourner l'orchestrateur en conteneur
+    # sur le réseau `monitoring` et ce port ne serait pas nécessaire.
+    ports:
+      - "127.0.0.1:8099:8000"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock   # droits élevés assumés (cf. sujet)
       - blocklist:/shared                           # écrit la blocklist lue par le frontend
