@@ -49,6 +49,49 @@ def api_ask(body: AskIn):
         raise HTTPException(502, f"Impossible d'interroger le modèle : {exc}")
 
 
+class ExplainIn(BaseModel):
+    incident: dict
+
+
+@app.post("/api/explain")
+def api_explain(body: ExplainIn):
+    """Explique une remédiation déjà prise (usage informatif, scénario attaque).
+
+    Appelé par l'orchestrateur. L'assistant n'exécute rien : il lit le corpus et rédige.
+    """
+    try:
+        store = _get_store()
+    except FileNotFoundError as exc:
+        raise HTTPException(503, str(exc))
+    try:
+        return rag.explain(body.incident, store=store)
+    except Exception as exc:
+        raise HTTPException(502, f"Impossible d'interroger le modèle : {exc}")
+
+
+class DecideIn(BaseModel):
+    symptom: str
+    health: dict
+    candidates: list[str] = []
+
+
+@app.post("/api/decide")
+def api_decide(body: DecideIn):
+    """Désigne le service à redémarrer (usage décideur, scénario chaos). Sortie JSON contrainte.
+
+    L'assistant PROPOSE ; la validation (catalogue fermé, service dégradé) et l'exécution
+    restent à l'orchestrateur — l'assistant n'a toujours aucun accès au système (M11).
+    """
+    try:
+        store = _get_store()
+    except FileNotFoundError as exc:
+        raise HTTPException(503, str(exc))
+    try:
+        return rag.decide(body.symptom, body.health, body.candidates, store=store)
+    except Exception as exc:
+        raise HTTPException(502, f"Impossible d'interroger le modèle : {exc}")
+
+
 @app.get("/api/health")
 def health():
     return {
