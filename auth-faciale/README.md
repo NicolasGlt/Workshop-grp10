@@ -238,6 +238,8 @@ Un seul poste et une seule caméra : l'état est global, et toute saisie hors de
 
 ### 6.5 LED et ESP8266 (`app/led.py`, `esp8266/src/main.cpp`)
 
+Comportement attendu de la LED à chaque étape du parcours, confronté au code : [docs/led.md](docs/led.md).
+
 L'ESP est un petit serveur HTTP à l'adresse fixe 192.168.137.200. L'application lui envoie un mode ; l'ESP gère seul durées et clignotements avec `millis()`, sans bloquer.
 
 | Requête | Effet |
