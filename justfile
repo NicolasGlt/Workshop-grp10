@@ -12,19 +12,15 @@ default:
 
 # ---------------------------------------------------------------- mise en place
 
-# Crée les .env depuis les modèles (sans écraser), à compléter ensuite
+# Crée les .env depuis les modèles et génère chaque secret change-me (sans écraser une valeur remplie)
 [unix]
 env:
-    test -f poc-resilience/.env || cp poc-resilience/.env.example poc-resilience/.env
-    test -f auth-faciale/.env || cp auth-faciale/.env.example auth-faciale/.env
-    @echo "Remplacer toutes les valeurs change-me, BACKOFFICE_DB_PASSWORD identique dans les deux .env"
+    python3 scripts/init_env.py
 
-# Crée les .env depuis les modèles (sans écraser), à compléter ensuite
+# Crée les .env depuis les modèles et génère chaque secret change-me (sans écraser une valeur remplie)
 [windows]
 env:
-    if (-not (Test-Path poc-resilience/.env)) { Copy-Item poc-resilience/.env.example poc-resilience/.env }
-    if (-not (Test-Path auth-faciale/.env)) { Copy-Item auth-faciale/.env.example auth-faciale/.env }
-    Write-Host "Remplacer toutes les valeurs change-me, BACKOFFICE_DB_PASSWORD identique dans les deux .env"
+    py -3.12 scripts/init_env.py
 
 # ---------------------------------------------------------------- SI (poc-resilience)
 
@@ -153,10 +149,10 @@ attack-check target="http://192.168.137.1":
 attack target="http://192.168.137.1" duration="60s" concurrency="90":
     podman run --rm docker.io/williamyeh/hey -z {{ duration }} -c {{ concurrency }} -T application/json -H "User-Agent: Mozilla/5.0" -H "Accept: application/json" "{{ target }}/api/ping"
 
-# Flood HTTP du point d'entrée (WAF) depuis le PC Attaquant, via Podman rootless
+# Flood HTTP du point d'entrée (WAF) depuis le PC Attaquant, via Docker Desktop (garde-fou de périmètre de flood.sh)
 [windows]
 attack target="http://192.168.137.1" duration="60s" concurrency="90":
-    podman run --rm docker.io/williamyeh/hey -z {{ duration }} -c {{ concurrency }} -T application/json -H "User-Agent: Mozilla/5.0" -H "Accept: application/json" "{{ target }}/api/ping"
+    & "$env:ProgramFiles\Git\bin\bash.exe" attacker/flood.sh "{{ target }}" "{{ duration }}" "{{ concurrency }}"
 
 # Débloque les IP bloquées par la remédiation (via unblock_ip) pour rejouer la démo sans attendre le TTL
 [unix]
