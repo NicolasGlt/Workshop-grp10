@@ -16,7 +16,16 @@ Aucune attaque réseau réelle n'est lancée. Tout est simulé en mémoire ou da
 
 ## Prérequis
 
-Python 3.11+ recommandé. Sur macOS :
+Python 3.11+ recommandé. Sous Windows, depuis `ml-lab\` :
+
+```powershell
+py -3.12 -m venv .venv
+.venv\Scripts\python -m pip install -r requirements.txt
+.venv\Scripts\python -m pytest
+.venv\Scripts\python scripts\run_all.py
+```
+
+Sur macOS ou Linux :
 
 ```bash
 python3 -m venv .venv

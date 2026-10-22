@@ -44,14 +44,16 @@ l'orchestrateur en conteneur sur le réseau `monitoring` et ce port loopback ser
 Pré-requis : la stack `poc-resilience` tourne, l'assistant RAG tourne sur `:8001`
 (`just assistant`), le jeton `REMEDIATION_TOKEN` est dans `poc-resilience/.env`.
 
-```bash
+```powershell
 just orchestrator-install   # une fois
-just orchestrator           # http://127.0.0.1:8002
+just orchestrator           # http://127.0.0.1:8002, terminal à laisser ouvert
 ```
 
-Démos :
+Le jeton est lu dans `poc-resilience/.env`, rien à configurer. Pas à pas sous Windows, assistant compris : [GUIDE-WINDOWS.md](../GUIDE-WINDOWS.md#10-panne-de-service-et-assistant-ia).
 
-```bash
+Démos, dans un autre terminal :
+
+```powershell
 just chaos            # arrête bank -> l'orchestrateur détecte, le LLM décide bank, reprise
 just chaos api        # autre service
 # flood (cf. attacker/) : la timeline montre le blocage déterministe + l'explication du LLM

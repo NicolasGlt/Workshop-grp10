@@ -49,6 +49,10 @@ La fiche détaillée (hypothèse, commande exacte, effet attendu, observation) e
   normale** (`ml_detector_trained = 1`) — sinon la détection ne prouve rien.
 - **Podman rootless** (pas de sudo, pas d'installation native) ; repli **Docker** si
   présent. L'image publique `williamyeh/hey` est téléchargée au premier lancement.
+- **PC Attaquant sous Windows** : Docker Desktop, Git for Windows et `just` suffisent.
+  Les recettes passent par le `bash` de Git for Windows et utilisent Docker.
+  Pas à pas : [GUIDE-WINDOWS.md](../GUIDE-WINDOWS.md#12-attaque-depuis-un-second-pc).
+- **Sans second PC** : `just demo` lance la même attaque depuis un conteneur du PC Hôte.
 
 ## Lancement
 
