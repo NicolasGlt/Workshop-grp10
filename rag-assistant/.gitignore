@@ -1,0 +1,10 @@
+# Environnement Python (hors conteneur, sur le PC Hôte)
+.venv/
+__pycache__/
+*.pyc
+
+# Configuration locale (le modèle .env.example reste versionné)
+.env
+
+# Index vectoriel reconstruit localement par `just assistant-index`
+index/
