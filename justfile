@@ -319,7 +319,8 @@ restore-check file="":
 
 # ---------------------------------------------------------------- secrets (SOPS + age)
 
-secrets_file := "poc-resilience/secrets/poc-resilience.enc.env"
+# Services dont le .env est chiffré. Convention : <service>/.env <-> <service>/secrets/<service>.enc.env
+secrets_services := "poc-resilience auth-faciale"
 
 # Crée sa clé age personnelle hors dépôt (sans écraser) et affiche la clé publique à ajouter à .sops.yaml
 [unix]
@@ -337,30 +338,53 @@ secrets-keygen:
 secrets-keygen:
     $f = if ($env:SOPS_AGE_KEY_FILE) { $env:SOPS_AGE_KEY_FILE } else { "$env:APPDATA\sops\age\keys.txt" }; if (-not (Test-Path $f)) { New-Item -ItemType Directory -Force (Split-Path $f) | Out-Null; age-keygen -o $f 2>$null }; Write-Host "Clé privée : $f (ne jamais la copier dans le dépôt)"; Write-Host "Clé publique à ajouter dans .sops.yaml :"; age-keygen -y $f
 
-# Chiffre poc-resilience/.env vers le fichier SOPS versionné
+# Chiffre le .env de chaque service vers son fichier SOPS versionné
 [unix]
 secrets-encrypt: _sops-ready
-    sops encrypt --input-type dotenv --output-type dotenv --filename-override {{ secrets_file }} --output {{ secrets_file }} poc-resilience/.env
-    @echo "Chiffré : {{ secrets_file }} (à commiter ; le .env en clair reste ignoré)"
+    #!/usr/bin/env bash
+    set -euo pipefail
+    for s in {{ secrets_services }}; do
+      sops encrypt --input-type dotenv --output-type dotenv --filename-override "$s/secrets/$s.enc.env" --output "$s/secrets/$s.enc.env" "$s/.env"
+      echo "Chiffré : $s/secrets/$s.enc.env (à commiter ; le .env en clair reste ignoré)"
+    done
 
-# Chiffre poc-resilience/.env vers le fichier SOPS versionné
+# Chiffre le .env de chaque service vers son fichier SOPS versionné
 [windows]
 secrets-encrypt: _sops-ready
-    sops encrypt --input-type dotenv --output-type dotenv --filename-override {{ secrets_file }} --output {{ secrets_file }} poc-resilience/.env
-    Write-Host "Chiffré : {{ secrets_file }} (à commiter ; le .env en clair reste ignoré)"
+    $ErrorActionPreference = "Stop"; foreach ($s in "{{ secrets_services }}".Split()) { sops encrypt --input-type dotenv --output-type dotenv --filename-override "$s/secrets/$s.enc.env" --output "$s/secrets/$s.enc.env" "$s/.env"; if ($LASTEXITCODE -ne 0) { exit 1 }; Write-Host "Chiffré : $s/secrets/$s.enc.env (à commiter ; le .env en clair reste ignoré)" }
 
-# Régénère poc-resilience/.env depuis le fichier SOPS (clé age privée requise)
-[confirm("Écraser poc-resilience/.env par la version déchiffrée ?")]
+# Régénère le .env de chaque service depuis son fichier SOPS (clé age privée requise)
+[confirm("Écraser les .env locaux par la version déchiffrée ?")]
+[unix]
 secrets-decrypt:
-    sops decrypt --input-type dotenv --output-type dotenv --output poc-resilience/.env {{ secrets_file }}
+    #!/usr/bin/env bash
+    set -euo pipefail
+    for s in {{ secrets_services }}; do
+      sops decrypt --input-type dotenv --output-type dotenv --output "$s/.env" "$s/secrets/$s.enc.env"
+      echo "Déchiffré : $s/.env"
+    done
 
-# Édite les secrets chiffrés directement (déchiffrés le temps de l'éditeur seulement)
-secrets-edit: _sops-ready
-    sops edit {{ secrets_file }}
+# Régénère le .env de chaque service depuis son fichier SOPS (clé age privée requise)
+[confirm("Écraser les .env locaux par la version déchiffrée ?")]
+[windows]
+secrets-decrypt:
+    $ErrorActionPreference = "Stop"; foreach ($s in "{{ secrets_services }}".Split()) { sops decrypt --input-type dotenv --output-type dotenv --output "$s/.env" "$s/secrets/$s.enc.env"; if ($LASTEXITCODE -ne 0) { exit 1 }; Write-Host "Déchiffré : $s/.env" }
 
-# Rechiffre la clé de données pour les clés publiques actuelles de .sops.yaml (après ajout ou départ d'un membre)
+# Édite les secrets chiffrés d'un service directement (déchiffrés le temps de l'éditeur seulement)
+secrets-edit service="poc-resilience": _sops-ready
+    sops edit {{ service }}/secrets/{{ service }}.enc.env
+
+# Rechiffre la clé de données de chaque service pour les clés publiques actuelles de .sops.yaml (après ajout ou départ d'un membre)
+[unix]
 secrets-updatekeys: _sops-ready
-    sops updatekeys --yes {{ secrets_file }}
+    #!/usr/bin/env bash
+    set -euo pipefail
+    for s in {{ secrets_services }}; do sops updatekeys --yes "$s/secrets/$s.enc.env"; done
+
+# Rechiffre la clé de données de chaque service pour les clés publiques actuelles de .sops.yaml (après ajout ou départ d'un membre)
+[windows]
+secrets-updatekeys: _sops-ready
+    $ErrorActionPreference = "Stop"; foreach ($s in "{{ secrets_services }}".Split()) { sops updatekeys --yes "$s/secrets/$s.enc.env"; if ($LASTEXITCODE -ne 0) { exit 1 } }
 
 # Refuse de chiffrer tant que .sops.yaml porte la clé d'exemple
 [private]
