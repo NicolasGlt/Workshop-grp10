@@ -158,6 +158,18 @@ attack target="http://192.168.137.1" duration="60s" concurrency="90":
 attack target="http://192.168.137.1" duration="60s" concurrency="90":
     podman run --rm docker.io/williamyeh/hey -z {{ duration }} -c {{ concurrency }} -T application/json -H "User-Agent: Mozilla/5.0" -H "Accept: application/json" "{{ target }}/api/ping"
 
+# Débloque les IP bloquées par la remédiation (via unblock_ip) pour rejouer la démo sans attendre le TTL
+[unix]
+[working-directory('poc-resilience')]
+attack-reset:
+    COMPOSE="{{ compose }}" ./scripts/reset-blocks.sh
+
+# Débloque les IP bloquées par la remédiation (via unblock_ip) pour rejouer la démo sans attendre le TTL
+[windows]
+[working-directory('poc-resilience')]
+attack-reset:
+    $env:COMPOSE = "{{ compose }}"; & "$env:ProgramFiles\Git\bin\bash.exe" scripts/reset-blocks.sh
+
 # ---------------------------------------------------------------- back-office (auth-faciale)
 
 # Installe l'environnement Python du back-office
