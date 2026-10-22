@@ -5,4 +5,4 @@
 creation_rules:
   - path_regex: poc-resilience[/\\]secrets[/\\][^/\\]+\.enc\.env$
     age: >-
-      age1-CLE-PUBLIQUE-A-REMPLACER
+      age1rkg8nlqpzfuaxx0z5cjdzv7ze2jnje5mvvhc0gangmq4fehv3y7q83mdd6
