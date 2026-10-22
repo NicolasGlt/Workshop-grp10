@@ -29,7 +29,18 @@ Outils : `sops` ≥ 3.9 (sous-commandes `encrypt`/`decrypt`, option `--filename-
    just secrets-encrypt
    ```
    puis commit de `poc-resilience/secrets/poc-resilience.enc.env`.
+   Sous Windows, si `secrets-encrypt` répond `invalid dotenv input line`, le `.env` est en CRLF : le parseur dotenv de SOPS exige des fins de ligne LF. Reconvertir le fichier en LF (bouton « CRLF → LF » de l'éditeur, ou `dos2unix poc-resilience/.env`) puis relancer. Le modèle `poc-resilience/.env.example` est déjà en LF (`.gitattributes`), donc un `.env` copié depuis lui n'a pas le souci.
 4. **Après l'ajout d'une clé publique**, un membre qui peut déjà déchiffrer lance `just secrets-updatekeys` et commite le fichier : le nouveau venu peut alors déchiffrer.
+
+## Déchiffrer sur son poste
+
+Une fois sa clé publique présente dans `.sops.yaml` et le fichier rechiffré pour elle (étape 4 ci-dessus), le membre récupère le `.env` en clair depuis le dépôt :
+
+```bash
+just secrets-decrypt   # régénère poc-resilience/.env à partir du fichier chiffré
+```
+
+SOPS lit la clé privée dans `%AppData%\sops\age\keys.txt` (Windows) ou `~/.config/sops/age/keys.txt` (Linux) ; aucun argument de clé à passer. Si le poste n'a pas encore de clé, voir l'étape 1. Le `.env` régénéré contient toutes les variables et commentaires ; seules les lignes vides décoratives sautent (SOPS ne les restitue pas en format dotenv), ce qui n'a aucun effet sur Docker Compose.
 
 ## Usage courant
 
