@@ -1,0 +1,4 @@
+# Orchestrateur d'incident — Python 3.12, hôte (hors conteneur). Pas de dépendance native.
+fastapi==0.159.1
+uvicorn==0.54.0
+httpx==0.28.1

@@ -114,6 +114,100 @@ def _journalise_lacune(question):
         pass
 
 
+# --- usages incident (appelés par l'orchestrateur) ------------------------------------
+# Ces deux fonctions gardent l'assistant dans son rôle : il LIT le corpus et RAISONNE sur
+# le contexte qu'on lui passe (alerte, santé des services). Il n'a toujours aucun outil ni
+# accès au système (M11) — il ne décide pas de l'exécution, il propose ; c'est l'orchestrateur
+# (composant de confiance) qui valide contre un catalogue fermé et appelle l'API de remédiation.
+
+_EXPLAIN_SYSTEM = (
+    "Tu es l'assistant local des opérateurs du projet RESILIENCE-ALPHA (groupe 10). "
+    "Une remédiation AUTOMATIQUE vient d'être décidée et exécutée par le système (sans toi). "
+    "Ton rôle ici est uniquement d'EXPLIQUER cette décision à l'opérateur, en français, en "
+    "t'appuyant sur les extraits de documentation fournis. Structure ta réponse en phrases "
+    "courtes : (1) l'incident constaté, (2) l'action prise, (3) pourquoi c'est la bonne réponse, "
+    "(4) la procédure ou le principe du projet qui le justifie. Tu n'exécutes rien et tu ne "
+    "proposes aucune action nouvelle. Ne liste pas les sources toi-même : l'interface les affiche."
+)
+
+_DECIDE_SYSTEM = (
+    "Tu es le conseiller de décision des opérateurs de RESILIENCE-ALPHA (groupe 10). "
+    "Un service du SI est dégradé. À partir de l'ARCHITECTURE documentée (dépendances entre "
+    "services) et de l'ÉTAT DE SANTÉ fourni, tu dois désigner LE service à redémarrer pour "
+    "rétablir la fonction, en tenant compte des dépendances (un service peut échouer parce que "
+    "celui dont il dépend est tombé : c'est la cause qu'il faut traiter, pas le symptôme). "
+    "Tu ne peux proposer QUE l'action `restart_service` sur un service de la liste candidate. "
+    "Réponds UNIQUEMENT par un objet JSON sur une seule ligne, sans texte autour, de la forme : "
+    '{"action":"restart_service","service":"<nom>","reason":"<courte justification citant la dépendance>"}. '
+    "N'invente pas de nom de service hors de la liste candidate."
+)
+
+
+def _retrieve(query, store):
+    store = store or load_store()
+    return store.similarity_search(query, k=config.TOP_K)
+
+
+def explain(incident: dict, store=None):
+    """Explique une remédiation déjà décidée/exécutée (usage INFORMATIF, scénario attaque).
+
+    `incident` : contexte libre (type, action, cible, signaux). Renvoie {explanation, sources, grounded}.
+    """
+    action = incident.get("action", "?")
+    kind = incident.get("type", "incident")
+    query = (f"remédiation {action} {kind} procédure blocage IP flood déni de service "
+             f"reprise automatique résilience")
+    docs = _retrieve(query, store)
+    contexte = json.dumps(incident, ensure_ascii=False, indent=2)
+    prompt = (
+        f"{_EXPLAIN_SYSTEM}\n\n"
+        f"Extraits de documentation :\n\n{_format_context(docs)}\n\n"
+        f"Incident et action prise (données système, à expliquer) :\n{contexte}"
+    )
+    reponse = _chat().invoke(prompt).content.strip()
+    return {"explanation": reponse or "(réponse vide)",
+            "sources": _sources(docs), "grounded": bool(docs)}
+
+
+def decide(symptom: str, health: dict, candidates: list, store=None):
+    """Désigne le service à redémarrer (usage DÉCIDEUR, scénario chaos).
+
+    Renvoie {decision:{action,service,reason}|None, reasoning, sources, grounded, raw}.
+    La validation finale (catalogue fermé, service réellement dégradé) revient à l'orchestrateur.
+    """
+    query = ("architecture dépendances services api bank base de données paiement "
+             "quel service redémarrer service dégradé reprise")
+    docs = _retrieve(query, store)
+    etat = json.dumps(health, ensure_ascii=False, indent=2)
+    prompt = (
+        f"{_DECIDE_SYSTEM}\n\n"
+        f"Extraits de documentation (architecture, dépendances) :\n\n{_format_context(docs)}\n\n"
+        f"Symptôme observé : {symptom}\n"
+        f"État de santé des services :\n{etat}\n"
+        f"Services candidats au redémarrage (dégradés) : {', '.join(candidates) or '(aucun)'}\n"
+        f"Donne ta décision en JSON."
+    )
+    raw = _chat().invoke(prompt).content.strip()
+    decision = _parse_decision(raw)
+    return {"decision": decision, "reasoning": raw,
+            "sources": _sources(docs), "grounded": bool(docs), "raw": raw}
+
+
+def _parse_decision(raw: str):
+    """Extrait le premier objet JSON {action, service, reason} d'une réponse LLM, tolérant."""
+    import re as _re
+    for bloc in _re.findall(r"\{[^{}]*\}", raw, _re.S):
+        try:
+            obj = json.loads(bloc)
+        except Exception:
+            continue
+        if isinstance(obj, dict) and obj.get("action") and obj.get("service"):
+            return {"action": str(obj.get("action")).strip(),
+                    "service": str(obj.get("service")).strip(),
+                    "reason": str(obj.get("reason", "")).strip()}
+    return None
+
+
 def answer(question, store=None):
     """Répond à `question`. D'abord depuis le corpus ; si rien de pertinent, réponse de
     secours étiquetée « hors documentation » et la lacune est journalisée pour qu'un humain

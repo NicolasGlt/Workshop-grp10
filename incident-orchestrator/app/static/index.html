@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Timeline d'incident — RESILIENCE-ALPHA</title>
+<style>
+  :root{
+    --bg:#0e1116; --panel:#161b22; --line:#273040; --txt:#e6edf3; --muted:#8b98a9;
+    --alert:#f0883e; --reason:#a371f7; --action:#539bf5; --recovery:#57ab5a;
+    --explain:#39c5bb; --info:#6e7781; --attaque:#e5534b; --chaos:#d29922;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font:15px/1.55 system-ui,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--txt)}
+  header{padding:16px 22px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+  header h1{font-size:18px;margin:0;font-weight:650}
+  header .sub{color:var(--muted);font-size:13px}
+  .spacer{flex:1}
+  .dot{width:9px;height:9px;border-radius:50%;display:inline-block;margin-right:6px;background:var(--info)}
+  .dot.on{background:var(--recovery);box-shadow:0 0 8px var(--recovery)}
+  .wrap{display:grid;grid-template-columns:260px 1fr;gap:0;min-height:calc(100vh - 62px)}
+  aside{border-right:1px solid var(--line);padding:16px 18px}
+  aside h2{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:0 0 10px}
+  .svc{display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid #1d2430;font-size:14px}
+  .pill{font-size:11px;padding:2px 8px;border-radius:999px;border:1px solid var(--line)}
+  .pill.ok{color:var(--recovery);border-color:#214d2a}
+  .pill.ko{color:var(--attaque);border-color:#52211f}
+  main{padding:18px 26px;overflow:auto}
+  .legend{display:flex;gap:14px;flex-wrap:wrap;margin:0 0 16px;color:var(--muted);font-size:12px}
+  .legend span::before{content:"";display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:5px;vertical-align:middle}
+  .timeline{position:relative;margin-left:8px;padding-left:26px;border-left:2px solid var(--line)}
+  .ev{position:relative;margin:0 0 18px}
+  .ev::before{content:"";position:absolute;left:-34px;top:3px;width:14px;height:14px;border-radius:50%;background:var(--info);border:3px solid var(--bg)}
+  .ev .head{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+  .ev .title{font-weight:600}
+  .ev .time{color:var(--muted);font-size:12px;margin-left:auto}
+  .ev .detail{color:#cdd7e1;margin-top:5px;white-space:pre-wrap}
+  .tag{font-size:11px;font-weight:700;letter-spacing:.03em;padding:2px 8px;border-radius:999px;text-transform:uppercase}
+  .tag.attaque{color:#fff;background:var(--attaque)}
+  .tag.chaos{color:#2a2000;background:var(--chaos)}
+  .phase{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+  .ev.alert::before{background:var(--alert)} .ev.alert .title{color:var(--alert)}
+  .ev.reasoning::before{background:var(--reason)} .ev.reasoning .title{color:var(--reason)}
+  .ev.action::before{background:var(--action)} .ev.action .title{color:var(--action)}
+  .ev.recovery::before{background:var(--recovery)} .ev.recovery .title{color:var(--recovery)}
+  .ev.explanation::before{background:var(--explain)} .ev.explanation .title{color:var(--explain)}
+  .ev.info::before{background:var(--info)}
+  .src{margin-top:6px;font-size:12px;color:var(--muted)}
+  .src code{background:#1d2430;padding:1px 6px;border-radius:4px;color:#b9c4d0}
+  .raw{margin-top:6px;font-family:ui-monospace,Consolas,monospace;font-size:12px;color:#9fb2c4;background:#10151c;border:1px solid var(--line);border-radius:6px;padding:8px;white-space:pre-wrap}
+  .empty{color:var(--muted);font-style:italic}
+</style>
+</head>
+<body>
+<header>
+  <h1>Timeline d'incident — RESILIENCE-ALPHA</h1>
+  <span class="sub">alerte → raisonnement du LLM → action → reprise → explication</span>
+  <span class="spacer"></span>
+  <span class="sub"><span id="live" class="dot"></span><span id="livetxt">connexion…</span></span>
+</header>
+<div class="wrap">
+  <aside>
+    <h2>Santé des services</h2>
+    <div id="health"></div>
+    <h2 style="margin-top:20px">Blocages actifs</h2>
+    <div id="blocks" class="sub">—</div>
+  </aside>
+  <main>
+    <div class="legend">
+      <span style="--c:var(--alert)"><i></i>Alerte</span>
+      <span style="--c:var(--reason)"><i></i>Raisonnement LLM</span>
+      <span style="--c:var(--action)"><i></i>Action</span>
+      <span style="--c:var(--recovery)"><i></i>Reprise</span>
+      <span style="--c:var(--explain)"><i></i>Explication LLM</span>
+    </div>
+    <div id="timeline" class="timeline"><div class="empty">En attente d'un incident… (lancer <code>just chaos</code> ou un flood)</div></div>
+  </main>
+</div>
+<script>
+  // couleur des puces de légende
+  document.querySelectorAll('.legend span').forEach(s=>{
+    s.querySelector('i').style.cssText='display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:5px;background:'+s.style.getPropertyValue('--c');
+  });
+  const tl = document.getElementById('timeline');
+  const seen = new Set();
+  let empty = true;
+
+  function esc(s){const d=document.createElement('div');d.textContent=s==null?'':String(s);return d.innerHTML;}
+  function hhmmss(iso){try{return new Date(iso).toLocaleTimeString('fr-FR');}catch(e){return '';}}
+
+  function addEvent(ev){
+    if(seen.has(ev.id)) return; seen.add(ev.id);
+    if(empty){tl.innerHTML='';empty=false;}
+    const el=document.createElement('div');
+    el.className='ev '+ev.phase;
+    let html='<div class="head">'+
+      '<span class="tag '+ev.scenario+'">'+esc(ev.scenario)+'</span>'+
+      '<span class="phase">'+esc(ev.phase)+'</span>'+
+      '<span class="title">'+esc(ev.title)+'</span>'+
+      '<span class="time">'+hhmmss(ev.ts)+'</span></div>';
+    if(ev.detail) html+='<div class="detail">'+esc(ev.detail)+'</div>';
+    const d=ev.data||{};
+    if(d.raw && ev.phase==='reasoning') html+='<div class="raw">'+esc(d.raw)+'</div>';
+    if(d.sources && d.sources.length){
+      html+='<div class="src">Sources (RAG) : '+d.sources.map(s=>'<code>'+esc(s.source||'?')+'</code>'+(s.title?' — '+esc(s.title):'')).join(' · ')+'</div>';
+    } else if('grounded' in d && d.grounded===false){
+      html+='<div class="src">⚠ hors documentation de l\'équipe</div>';
+    }
+    el.innerHTML=html;
+    tl.appendChild(el);
+    window.scrollTo(0,document.body.scrollHeight);
+  }
+
+  function renderHealth(st){
+    const h=st.health||{}, box=document.getElementById('health');
+    box.innerHTML=Object.keys(h).map(svc=>{
+      const s=h[svc], ok=!s.degraded;
+      return '<div class="svc"><span>'+esc(svc)+'</span><span class="pill '+(ok?'ok':'ko')+'">'+esc(s.state)+(s.health!=='none'?' · '+esc(s.health):'')+'</span></div>';
+    }).join('')||'<span class="sub">—</span>';
+    const b=(st.remediation&&st.remediation.blocks_active)||[];
+    document.getElementById('blocks').textContent=b.length?b.join(', '):'aucun';
+  }
+
+  async function pollState(){
+    try{const st=await (await fetch('/api/state')).json();renderHealth(st);}catch(e){}
+  }
+
+  // historique + live via SSE
+  const live=document.getElementById('live'), livetxt=document.getElementById('livetxt');
+  const es=new EventSource('/api/stream');
+  es.onopen=()=>{live.classList.add('on');livetxt.textContent='en direct';};
+  es.onerror=()=>{live.classList.remove('on');livetxt.textContent='reconnexion…';};
+  es.onmessage=e=>{if(!e.data)return;try{addEvent(JSON.parse(e.data));}catch(err){}};
+
+  pollState(); setInterval(pollState, 3000);
+</script>
+</body>
+</html>
