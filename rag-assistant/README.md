@@ -19,7 +19,8 @@ documentation du projet** (procédures, architecture, fiche du jour J). Construi
 Le sujet suggère un modèle ≤ 8B. L'équipe garde le **Qwen 9B déjà installé sur le PC Hôte**,
 par choix : il **tient sur la RTX 4070 (12 Go)** et **répond mieux**. L'écart est assumé et le
 modèle reste **configurable** par `RAG_MODEL` dans `.env` : copier le nom exact donné par
-`ollama list`. Pour un poste plus modeste, mettre un modèle plus petit (`qwen3:1.7b`, etc.).
+`ollama list`. Pour un poste plus modeste, mettre un modèle plus petit (`qwen2.5:3b`,
+`qwen3:1.7b`, etc.) ; le smoke test de développement a été passé avec `qwen2.5:3b`.
 
 ## Pile technique
 
