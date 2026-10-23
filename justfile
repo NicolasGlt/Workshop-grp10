@@ -436,3 +436,27 @@ _sops-ready:
 [windows]
 _sops-ready:
     @if (Select-String -Quiet -Pattern A-REMPLACER -Path .sops.yaml) { Write-Error "remplacer la clé d'exemple de .sops.yaml (voir poc-resilience/secrets/README.md)"; exit 1 }
+
+# ---------------------------------------------------------------- SIEM Wazuh (siem/, stack indépendante)
+# Projet Docker dédié "wazuh-siem", réseau/volumes/ports séparés de poc-resilience. Ne touche pas à la démo.
+
+# Génère les certificats Wazuh (à faire une fois avant le premier siem-up)
+[working-directory('siem')]
+siem-certs:
+    {{ compose }} -f generate-indexer-certs.yml -p wazuh-siem run --rm generator
+
+# Démarre la stack SIEM Wazuh (manager + indexer + dashboard). Dashboard : https://localhost:8443
+[working-directory('siem')]
+siem-up:
+    {{ compose }} -p wazuh-siem up -d
+    @echo "Wazuh dashboard : https://localhost:8443  (admin / SecretPassword)"
+
+# Arrête la stack SIEM Wazuh (données conservées)
+[working-directory('siem')]
+siem-down:
+    {{ compose }} -p wazuh-siem down
+
+# État des conteneurs Wazuh
+[working-directory('siem')]
+siem-ps:
+    {{ compose }} -p wazuh-siem ps
